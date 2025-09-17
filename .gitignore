@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets
+config.py
+.env
+
+# OS cruft
+.DS_Store
+
