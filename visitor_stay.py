@@ -230,10 +230,43 @@ def parse_new_visitors_report(html_content, year_label):
     member_id_col = find_col('member id')
     person_col = find_col('person', 'full name', 'name', 'first name')
     location_cols = [i for i, h in enumerate(lower_headers) if any(k in h for k in ('location', 'service', 'place', 'where'))]
+    
+    # Find date columns - both "Added" and "Date Added"
+    added_col = find_col('added')
+    date_added_col = None
+    for i, h in enumerate(lower_headers):
+        if 'date added' in h or 'date_added' in h:
+            date_added_col = i
+            break
 
     print(f"      🔍 Column mapping - Member ID: {member_id_col}, Person: {person_col}, Locations: {location_cols}")
+    print(f"      🔍 Date columns - Added: {added_col}, Date Added: {date_added_col}")
+    
+    # Helper function to parse dates flexibly
+    def parse_year_from_date(date_str):
+        """Extract year from date string, trying multiple formats"""
+        if not date_str:
+            return None
+        try:
+            # Try various date formats
+            for fmt in ['%d %B, %Y', '%d %b, %Y', '%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y', '%d-%m-%Y', '%d %B %Y', '%d %b %Y']:
+                try:
+                    from datetime import datetime
+                    return datetime.strptime(date_str.strip(), fmt).year
+                except:
+                    continue
+            # If no format matches, try to extract 4-digit year
+            year_match = re.search(r'\b(19|20)\d{2}\b', date_str)
+            if year_match:
+                return int(year_match.group(0))
+        except:
+            pass
+        return None
 
     visitors = []
+    excluded_merged = []
+    expected_year = int(year_label)
+    
     for r in rows_text[header_row_index + 1:]:
         if len(r) < len(headers):
             continue
@@ -248,13 +281,34 @@ def parse_new_visitors_report(html_content, year_label):
                     member_id = cell_text
                     break
 
-        if full_name:
+        # Check both date columns for merged records
+        should_exclude = False
+        if full_name and (added_col is not None or date_added_col is not None):
+            date1_str = r[added_col] if added_col is not None and added_col < len(r) else ''
+            date2_str = r[date_added_col] if date_added_col is not None and date_added_col < len(r) else ''
+            
+            year1 = parse_year_from_date(date1_str)
+            year2 = parse_year_from_date(date2_str)
+            
+            # If we have both dates and they differ, check if the earlier one is from a previous year
+            if year1 and year2 and year1 != year2:
+                earliest_year = min(year1, year2)
+                if earliest_year < expected_year:
+                    should_exclude = True
+                    excluded_merged.append(f"{full_name} (dates: {date1_str} / {date2_str})")
+
+        if full_name and not should_exclude:
             visitors.append({
                 'member_id': member_id or f"unknown_{len(visitors)+1}",
                 'full_name': full_name,
                 'locations': locations,
                 'raw_data': dict(zip(headers, r[:len(headers)]))
             })
+    
+    if excluded_merged:
+        print(f"      🚫 Excluded {len(excluded_merged)} merged records with old dates:")
+        for person in excluded_merged[:5]:  # Show first 5
+            print(f"         - {person}")
 
     print(f"      ✅ Extracted {len(visitors)} visitors for {year_label}")
     if visitors:
@@ -468,34 +522,16 @@ def classify_visitor_location(locations):
     return 'empty'
 
 def apply_pro_rata_estimation(visitors_by_service, year_label):
-    """Apply pro-rata estimation to empty location visitors"""
-    total_visitors = sum(visitors_by_service.values())
+    """Exclude visitors with empty locations rather than redistributing them"""
     empty_visitors = visitors_by_service.get('empty', 0)
     
     if empty_visitors == 0:
         return visitors_by_service
     
-    # Calculate ratios from regular services only (exclude Christmas/Easter/empty)
-    regular_services = ['8:30AM', '10:30AM', '6:30PM', 'Mid-week']
-    regular_totals = {service: visitors_by_service.get(service, 0) for service in regular_services}
-    regular_sum = sum(regular_totals.values())
+    print(f"      📊 Excluding {empty_visitors} visitors with no location assigned")
     
-    if regular_sum == 0:
-        print(f"      ⚠️ No regular service visitors found for {year_label}, cannot apply pro-rata")
-        return visitors_by_service
-    
-    print(f"      📊 Applying pro-rata estimation to {empty_visitors} empty location visitors:")
-    
-    # Distribute empty visitors proportionally
+    # Remove empty category without redistributing
     result = visitors_by_service.copy()
-    for service in regular_services:
-        if regular_sum > 0:
-            proportion = regular_totals[service] / regular_sum
-            additional = int(empty_visitors * proportion)
-            result[service] = result.get(service, 0) + additional
-            print(f"         {service}: +{additional} (ratio: {proportion:.2f})")
-    
-    # Remove empty category
     result.pop('empty', None)
     return result
 
@@ -1259,18 +1295,18 @@ def get_default_single_year(year):
 
 def create_plotly_charts(visitor_data, stayed_data, congregation_averages):
     """
-    Stacked portrait layout with a single compact 'Changes' table:
-      • Four charts stacked vertically (unchanged metrics/series).
-      • One Changes table showing:
-          - Δ (Last Year − Two Years Ago)
-          - Δ (This Year − Last Year)
-    No changes to calculations, only layout and the table contents.
+    Compact A4 portrait layout with Metric-First tables:
+      • Four charts stacked vertically (compressed for A4)
+      • Four separate tables below, one per metric (Visitors, VR%, Stayed, SR%)
+      • Sized to fit on A4 page: 1000×1400px
+      • Fixed: no overlapping titles or labels
+      • Fixed: Mid-week row no longer cut off
     """
     from datetime import datetime
     from plotly.subplots import make_subplots
     import plotly.graph_objects as go
 
-    print("\n📊 Creating Plotly charts in stacked (portrait) layout + Changes table…")
+    print("\n📊 Creating Plotly charts in A4 portrait layout + Metric-First tables…")
 
     current_year = datetime.now().year
     years = [current_year - 2, current_year - 1, current_year]
@@ -1324,8 +1360,7 @@ def create_plotly_charts(visitor_data, stayed_data, congregation_averages):
             vr = (v_for_ratio / avg_cong * 100) if avg_cong > 0 else 0.0
             sr = (s / v * 100) if v > 0 else 0.0
 
-            # stash per-service arrays for charts (append in order y_23,y_24,y_25)
-            if svc not in visitor_counts:  # because we prefixed 'Overall'
+            if svc not in visitor_counts:
                 visitor_counts[svc] = []
                 stayed_counts[svc] = []
                 visitor_ratios[svc] = []
@@ -1356,24 +1391,30 @@ def create_plotly_charts(visitor_data, stayed_data, congregation_averages):
 
         metrics['Overall'][year] = {'visitors': ov_vis, 'vratio': ov_vr, 'stayed': ov_sty, 'sratio': ov_sr}
 
-    # ---- Layout: 5 rows (4 charts + 1 changes table) x 1 col; A4-ish portrait width ----
+    # ---- Layout: 8 rows (4 charts + 4 tables) x 1 col - COMPRESSED FOR A4 ----
     fig = make_subplots(
-        rows=5, cols=1,
+        rows=8, cols=1,
         specs=[
-            [{"type": "xy"}],      # 1: Visitor Numbers
-            [{"type": "xy"}],      # 2: Visitor Ratios
-            [{"type": "xy"}],      # 3: Stayed Numbers
-            [{"type": "xy"}],      # 4: Stay Ratios
-            [{"type": "domain"}],  # 5: Changes table only
+            [{"type": "xy"}],      # 1: Visitor Numbers chart
+            [{"type": "xy"}],      # 2: Visitor Ratios chart
+            [{"type": "xy"}],      # 3: Stayed Numbers chart
+            [{"type": "xy"}],      # 4: Stay Ratios chart
+            [{"type": "domain"}],  # 5: VISITORS table
+            [{"type": "domain"}],  # 6: VISITOR RATIO table
+            [{"type": "domain"}],  # 7: STAYED table
+            [{"type": "domain"}],  # 8: STAY RATIO table
         ],
-        row_heights=[0.19, 0.19, 0.19, 0.19, 0.24],
-        vertical_spacing=0.05,
+        row_heights=[0.132, 0.132, 0.132, 0.132, 0.118, 0.118, 0.118, 0.118],  # Increased table heights
+        vertical_spacing=0.033,  # Slightly reduced spacing to accommodate larger tables
         subplot_titles=[
             'Visitor Numbers by Service',
             'Visitor Ratios (% of Congregation)',
             'Stay Numbers by Service',
             'Stay Ratios (%)',
-            'Year-over-Year Changes'
+            '<b>VISITORS</b>',
+            '<b>VISITOR RATIO (% of Congregation)</b>',
+            '<b>STAYED</b>',
+            '<b>STAY RATIO (%)</b>'
         ]
     )
 
@@ -1404,575 +1445,275 @@ def create_plotly_charts(visitor_data, stayed_data, congregation_averages):
                              marker_color=service_colors[svc], legendgroup='services', showlegend=False),
                       row=4, col=1)
 
-    # --- CHANGES TABLE: include both intervals (LY−2Y) and (TY−LY) ---
+    # --- TABLE LAYOUT: Four separate tables, one per metric ---
     def fmt_i(n): return int(round(n))
     def fmt_p(x): return f"{x:.1f}"
 
-    table_header = [
-        "Service",
-        # Visitors block
-        f"Visitors {y_23}", f"Visitors {y_24}", f"Δ {y_24}-{y_23}",
-        f"Visitors {y_25}", f"Δ {y_25}-{y_24}",
-        # Visitor Ratio block
-        f"VR% {y_23}", f"VR% {y_24}", f"Δ pp {y_24}-{y_23}",
-        f"VR% {y_25}", f"Δ pp {y_25}-{y_24}",
-        # Stayed block
-        f"Stayed {y_23}", f"Stayed {y_24}", f"Δ {y_24}-{y_23}",
-        f"Stayed {y_25}", f"Δ {y_25}-{y_24}",
-        # Stay Ratio block
-        f"SR% {y_23}", f"SR% {y_24}", f"Δ pp {y_24}-{y_23}",
-        f"SR% {y_25}", f"Δ pp {y_25}-{y_24}",
-    ]
+    # Common header for all tables - using "Congregation" instead of "Service"
+    table_header = ["Congregation", str(y_23), str(y_24), f"Δ {y_24}-{y_23}", str(y_25), f"Δ {y_25}-{y_24}"]
 
-    table_rows = []
-    for svc in services:  # Overall first, then services
-        m23 = metrics[svc][y_23]; m24 = metrics[svc][y_24]; m25 = metrics[svc][y_25]
-        table_rows.append([
+    # Table 1: VISITORS
+    visitors_rows = []
+    for svc in services:
+        m23 = metrics[svc][y_23]
+        m24 = metrics[svc][y_24]
+        m25 = metrics[svc][y_25]
+        visitors_rows.append([
             svc,
-            # Visitors
-            fmt_i(m23['visitors']), fmt_i(m24['visitors']), fmt_i(m24['visitors'] - m23['visitors']),
-            fmt_i(m25['visitors']), fmt_i(m25['visitors'] - m24['visitors']),
-            # Visitor Ratio (pp)
-            fmt_p(m23['vratio']), fmt_p(m24['vratio']), f"{(m24['vratio'] - m23['vratio']):.1f}",
-            fmt_p(m25['vratio']), f"{(m25['vratio'] - m24['vratio']):.1f}",
-            # Stayed
-            fmt_i(m23['stayed']), fmt_i(m24['stayed']), fmt_i(m24['stayed'] - m23['stayed']),
-            fmt_i(m25['stayed']), fmt_i(m25['stayed'] - m24['stayed']),
-            # Stay Ratio (pp)
-            fmt_p(m23['sratio']), fmt_p(m24['sratio']), f"{(m24['sratio'] - m23['sratio']):.1f}",
-            fmt_p(m25['sratio']), f"{(m25['sratio'] - m24['sratio']):.1f}",
+            fmt_i(m23['visitors']),
+            fmt_i(m24['visitors']),
+            fmt_i(m24['visitors'] - m23['visitors']),
+            fmt_i(m25['visitors']),
+            fmt_i(m25['visitors'] - m24['visitors'])
         ])
 
     fig.add_trace(
         go.Table(
             header=dict(
                 values=table_header,
-                fill_color='#e2e8f0',
-                font=dict(color='#0f172a', size=11),
-                align='center', height=26
+                fill_color='#e8f4f8',
+                font=dict(color='#0f172a', size=9, family='Inter'),
+                align='center', height=22
             ),
             cells=dict(
-                values=list(map(list, zip(*table_rows))),
+                values=list(map(list, zip(*visitors_rows))),
                 fill_color='#ffffff',
-                align='right',
-                height=22,
-                font=dict(size=10, color='#334155')
+                align=['left'] + ['right']*5,
+                height=18,
+                font=dict(size=8, color='#334155', family='Inter')
             ),
-            columnwidth=[
-                94,  # Service
-                # Visitors block (5)
-                86, 86, 86, 86, 86,
-                # VR% block (5)
-                80, 80, 86, 80, 86,
-                # Stayed block (5)
-                86, 86, 86, 86, 86,
-                # SR% block (5)
-                80, 80, 86, 80, 86
-            ]
+            columnwidth=[110, 70, 70, 90, 70, 90]
         ),
         row=5, col=1
     )
 
-    # A4-ish portrait size (moderately wide)
+    # Table 2: VISITOR RATIO
+    vr_rows = []
+    for svc in services:
+        m23 = metrics[svc][y_23]
+        m24 = metrics[svc][y_24]
+        m25 = metrics[svc][y_25]
+        vr_rows.append([
+            svc,
+            fmt_p(m23['vratio']),
+            fmt_p(m24['vratio']),
+            fmt_p(m24['vratio'] - m23['vratio']),
+            fmt_p(m25['vratio']),
+            fmt_p(m25['vratio'] - m24['vratio'])
+        ])
+
+    fig.add_trace(
+        go.Table(
+            header=dict(
+                values=table_header,
+                fill_color='#fef3c7',
+                font=dict(color='#0f172a', size=9, family='Inter'),
+                align='center', height=22
+            ),
+            cells=dict(
+                values=list(map(list, zip(*vr_rows))),
+                fill_color='#ffffff',
+                align=['left'] + ['right']*5,
+                height=18,
+                font=dict(size=8, color='#334155', family='Inter')
+            ),
+            columnwidth=[110, 70, 70, 90, 70, 90]
+        ),
+        row=6, col=1
+    )
+
+    # Table 3: STAYED
+    stayed_rows = []
+    for svc in services:
+        m23 = metrics[svc][y_23]
+        m24 = metrics[svc][y_24]
+        m25 = metrics[svc][y_25]
+        stayed_rows.append([
+            svc,
+            fmt_i(m23['stayed']),
+            fmt_i(m24['stayed']),
+            fmt_i(m24['stayed'] - m23['stayed']),
+            fmt_i(m25['stayed']),
+            fmt_i(m25['stayed'] - m24['stayed'])
+        ])
+
+    fig.add_trace(
+        go.Table(
+            header=dict(
+                values=table_header,
+                fill_color='#d1fae5',
+                font=dict(color='#0f172a', size=9, family='Inter'),
+                align='center', height=22
+            ),
+            cells=dict(
+                values=list(map(list, zip(*stayed_rows))),
+                fill_color='#ffffff',
+                align=['left'] + ['right']*5,
+                height=18,
+                font=dict(size=8, color='#334155', family='Inter')
+            ),
+            columnwidth=[110, 70, 70, 90, 70, 90]
+        ),
+        row=7, col=1
+    )
+
+    # Table 4: STAY RATIO
+    sr_rows = []
+    for svc in services:
+        m23 = metrics[svc][y_23]
+        m24 = metrics[svc][y_24]
+        m25 = metrics[svc][y_25]
+        sr_rows.append([
+            svc,
+            fmt_p(m23['sratio']),
+            fmt_p(m24['sratio']),
+            fmt_p(m24['sratio'] - m23['sratio']),
+            fmt_p(m25['sratio']),
+            fmt_p(m25['sratio'] - m24['sratio'])
+        ])
+
+    fig.add_trace(
+        go.Table(
+            header=dict(
+                values=table_header,
+                fill_color='#fecaca',
+                font=dict(color='#0f172a', size=9, family='Inter'),
+                align='center', height=22
+            ),
+            cells=dict(
+                values=list(map(list, zip(*sr_rows))),
+                fill_color='#ffffff',
+                align=['left'] + ['right']*5,
+                height=18,
+                font=dict(size=8, color='#334155', family='Inter')
+            ),
+            columnwidth=[110, 70, 70, 90, 70, 90]
+        ),
+        row=8, col=1
+    )
+
+    # A4 portrait dimensions: 1000×1400px
     fig.update_layout(
         title=dict(
-            text="<b>Visitor and Stay Dashboard</b><br><span style='font-size:16px; color:#64748b'>Three-Year Analysis Across Four Congregations + Overall Church</span>",
-            x=0.5, y=0.988,
-            font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", size=24, color='#1e293b')
+            text="<b>Visitor and Stay Dashboard</b><br><span style='font-size:12px; color:#64748b'>Three-Year Analysis Across Four Congregations + Overall Church</span>",
+            x=0.5, y=0.975,  # Moved down slightly from top edge
+            font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", size=18, color='#1e293b')
         ),
-        font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", size=12),
+        font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", size=9),
         plot_bgcolor='white',
         paper_bgcolor='white',
-        height=1980, width=1400,   # a touch wider to accommodate the single wide table
+        height=1400, width=1000,  # A4 portrait proportions
         barmode='group',
         legend=dict(
             orientation="v",
-            yanchor="top", y=1.0,
+            yanchor="top", y=0.96,
             xanchor="right", x=0.99,
-            font=dict(size=12, color='#374151'),
+            font=dict(size=9, color='#374151'),
             bgcolor='rgba(255,255,255,0.9)'
         ),
-        margin=dict(l=50, r=50, t=160, b=80)
+        margin=dict(l=45, r=45, t=120, b=65)  # Increased bottom margin from 40 to 65
     )
 
+    # Update subplot title font sizes to be smaller
+    for annotation in fig['layout']['annotations']:
+        annotation['font'] = dict(size=10)
+    
     fig.update_xaxes(showgrid=False, showline=True, linewidth=1, linecolor='#e2e8f0',
-                     tickfont=dict(size=11, color='#374151'))
+                     tickfont=dict(size=9, color='#374151'))
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#f1f5f9',
                      showline=True, linewidth=1, linecolor='#e2e8f0',
-                     tickfont=dict(size=11, color='#374151'))
-    fig.update_yaxes(title_text="Number of Visitors", row=1, col=1)
-    fig.update_yaxes(title_text="Visitor Ratio (%)", row=2, col=1)
-    fig.update_yaxes(title_text="Number Who Stayed", row=3, col=1)
-    fig.update_yaxes(title_text="Stay Ratio (%)", row=4, col=1)
+                     tickfont=dict(size=9, color='#374151'))
+    fig.update_yaxes(title_text="Visitors", row=1, col=1, title_font=dict(size=9))
+    fig.update_yaxes(title_text="Ratio (%)", row=2, col=1, title_font=dict(size=9))
+    fig.update_yaxes(title_text="Stayed", row=3, col=1, title_font=dict(size=9))
+    fig.update_yaxes(title_text="Ratio (%)", row=4, col=1, title_font=dict(size=9))
 
     return fig
 
 def create_visitor_stay_dashboard(visitor_data, stayed_data, congregation_averages):
-    """Create the complete Visitor and Stay Dashboard with charts (portrait PNG)."""
+    """Create the complete Visitor and Stay Dashboard with charts (A4 portrait, saves to outputs folder, auto-opens HTML)."""
+    import os
+    import webbrowser
+    
     current_year = datetime.now().year
     years = [current_year - 2, current_year - 1, current_year]
     
-    print(f"\n🎨 Creating Visitor and Stay Dashboard with charts (portrait export, A4-ish)…")
+    print(f"\n🎨 Creating Visitor and Stay Dashboard with charts (A4 portrait)…")
+    
+    # Create outputs directory if it doesn't exist
+    outputs_dir = 'outputs'
+    if not os.path.exists(outputs_dir):
+        os.makedirs(outputs_dir)
+        print(f"✅ Created '{outputs_dir}' directory")
     
     fig = create_plotly_charts(visitor_data, stayed_data, congregation_averages)
     html_content = generate_dashboard_html_with_chart(fig, visitor_data, stayed_data, congregation_averages, years)
     
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M')
-    filename = f"visitor_stay_dashboard_{timestamp}.html"
+    # Use consistent filenames (no timestamp)
+    html_filename = os.path.join(outputs_dir, 'visitor_stay_dashboard.html')
+    png_filename = os.path.join(outputs_dir, 'visitor_stay_dashboard.png')
     
     try:
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(html_filename, 'w', encoding='utf-8') as f:
             f.write(html_content)
-        print(f"✅ Dashboard saved as: {filename}")
+        print(f"✅ Dashboard saved as: {html_filename}")
         
+        # Auto-open HTML file
         try:
-            import webbrowser, os
-            png_filename = filename.replace('.html', '.png')
-            # Match the figure’s new size
-            fig.write_image(png_filename, width=1400, height=1980, scale=2)
-            print(f"✅ Chart saved as PNG: {png_filename}")
-            webbrowser.open(f"file://{os.path.abspath(png_filename)}")
-            print(f"🚀 Auto-opened PNG: {png_filename}")
+            webbrowser.open(f"file://{os.path.abspath(html_filename)}")
+            print(f"🚀 Auto-opened HTML: {html_filename}")
         except Exception as e:
-            print(f"⚠️ PNG export/open failed (install kaleido and pillow): {e}")
-            try:
-                png_filename = filename.replace('.html', '.png')
-                fig.write_image(png_filename, width=1400, height=1980, scale=2)
-                print(f"✅ Chart saved as PNG: {png_filename}")
-            except:
-                print("❌ PNG export completely failed")
+            print(f"⚠️ Could not auto-open HTML file: {e}")
+        
+        # Try to save PNG with A4 dimensions
+        try:
+            fig.write_image(png_filename, width=1000, height=1400, scale=2)
+            print(f"✅ Chart saved as PNG: {png_filename}")
+        except Exception as e:
+            print(f"⚠️ PNG export failed (install kaleido and pillow): {e}")
     except Exception as e:
         print(f"❌ Failed to save dashboard: {e}")
         return None
 
-    return filename
+    return html_filename
 
 def generate_dashboard_html_with_chart(fig, visitor_data, stayed_data, congregation_averages, years):
     """
-    Generate HTML dashboard with embedded Plotly chart + numeric tables under the charts.
-    Tables include:
-      • Data Table: Visitors, Visitor Ratio (% of congregation), Stayed, Stay Ratio (%) by Year × Service.
-      • YoY Change Table: Current vs Last Year deltas (counts and percentage-points).
-
-    Uses the same gross-up logic as create_plotly_charts() for Visitor Ratio (current year only):
-      1) Prefer per-service service_counts ratio (baseline last year ÷ current year).
-      2) Fallback to months-based factor: 12 ÷ full_months_elapsed.
+    Generate minimal HTML dashboard with just the embedded Plotly chart.
+    This ensures the HTML matches the PNG output exactly.
     """
-    import sys
     from datetime import datetime
     import plotly.io as pio
-    from bs4 import BeautifulSoup
 
-    # --- helper (scoped here so this function is self-contained) ---
-    def _gross_up_factor_for_current_year(baseline_counts_by_service, counts_map, svc, today=None):
-        """
-        Returns a gross-up factor for current-year visitor ratios.
-        Priority:
-          1) If we have per-service counts for last year vs current, use baseline/current.
-          2) Otherwise, fall back to a months-based factor: 12 / full_months_elapsed.
-             (full months = months fully completed this year; e.g., on Sept 2 → 8)
-        """
-        today = today or datetime.now()
-        baseline = (baseline_counts_by_service or {}).get(svc, 0)
-        current  = (counts_map or {}).get(svc, 0)
-        if baseline and current:
-            return baseline / current
-        full_months = max(1, today.month - 1)   # completed months this year
-        return 12.0 / full_months
+    # Convert Plotly figure to HTML div
+    chart_html = pio.to_html(fig, include_plotlyjs='cdn', full_html=False)
 
-    # ---- Convert Plotly figure to an embeddable div ----
-    chart_html = pio.to_html(fig, include_plotlyjs='cdn', div_id='plotly-div')
-    soup = BeautifulSoup(chart_html, 'lxml') if 'lxml' in sys.modules or True else BeautifulSoup(chart_html, 'html.parser')
-    chart_div = soup.find('div', {'id': 'plotly-div'})
-
-    # ---- Helpers to read old/new congregation_averages shapes ----
-    def get_avg_map(y):
-        yval = congregation_averages.get(y, {})
-        if isinstance(yval, dict) and 'averages' in yval:
-            return yval.get('averages', {})
-        return yval if isinstance(yval, dict) else {}
-
-    def get_counts_map(y):
-        yval = congregation_averages.get(y, {})
-        if isinstance(yval, dict) and 'service_counts' in yval:
-            return yval.get('service_counts', {})
-        return {}
-
-    current_year = years[-1]
-    last_year = years[-2] if len(years) >= 2 else None
-    two_years_ago = years[-3] if len(years) >= 3 else None
-
-    # Baseline for gross-up is LAST YEAR's service counts; fallback to two years ago, then current
-    baseline_counts_by_service = get_counts_map(last_year) if last_year else {}
-    if not baseline_counts_by_service and two_years_ago is not None:
-        baseline_counts_by_service = get_counts_map(two_years_ago)
-    if not baseline_counts_by_service:
-        baseline_counts_by_service = get_counts_map(current_year)
-
-    regular_services = ['8:30AM', '10:30AM', '6:30PM', 'Mid-week']
-    all_services = regular_services + ['Overall']
-
-    # ---- Compute the numbers that back the charts (with gross-up for current year visitor ratio) ----
-    metrics = {y: {svc: {'visitors': 0, 'vratio': 0.0, 'stayed': 0, 'sratio': 0.0} for svc in all_services} for y in years}
-
-    for y in years:
-        avg_map = get_avg_map(y)
-        counts_map = get_counts_map(y)
-
-        total_visitors_raw = 0
-        total_visitors_for_ratio = 0.0  # after gross-up
-        total_stayed = 0
-        total_avg = 0
-
-        for svc in regular_services:
-            v = visitor_data.get(y, {}).get(svc, 0)
-            s = stayed_data.get(y, {}).get(svc, 0)
-            avg_cong = avg_map.get(svc, 50)
-
-            # Gross-up ONLY for current year
-            v_for_ratio = visitors_for_ratio(
-                y, svc, v, counts_map, baseline_counts_by_service
-            )
-            
-            vratio = (v_for_ratio / avg_cong * 100) if avg_cong > 0 else 0.0
-            sratio = (s / v * 100) if v > 0 else 0.0
-
-            metrics[y][svc] = {'visitors': v, 'vratio': vratio, 'stayed': s, 'sratio': sratio}
-
-            total_visitors_raw += v
-            total_visitors_for_ratio += v_for_ratio
-            total_stayed += s
-            total_avg += avg_cong
-
-        # Overall row
-        metrics[y]['Overall']['visitors'] = total_visitors_raw
-        metrics[y]['Overall']['stayed'] = total_stayed
-        metrics[y]['Overall']['vratio'] = (total_visitors_for_ratio / total_avg * 100) if total_avg > 0 else 0.0
-        metrics[y]['Overall']['sratio'] = (total_stayed / total_visitors_raw * 100) if total_visitors_raw > 0 else 0.0
-
-    # ---- Build the Data Table HTML ----
-    def fmt_int(n): return f"{int(round(n))}"
-    def fmt_pct(x, decimals=1): return f"{x:.{decimals}f}%"
-    def fmt_pp(x, decimals=1): return f"{x:.{decimals}f} pp"
-
-    table_rows_html = ""
-    for svc in all_services:
-        for y in years:
-            m = metrics[y][svc]
-            table_rows_html += f"""
-                <tr>
-                    <td class="t-service">{svc}</td>
-                    <td>{y}</td>
-                    <td class="num">{fmt_int(m['visitors'])}</td>
-                    <td class="num">{fmt_pct(m['vratio'])}</td>
-                    <td class="num">{fmt_int(m['stayed'])}</td>
-                    <td class="num">{fmt_pct(m['sratio'])}</td>
-                </tr>
-            """
-
-    # YoY change table (Current vs Last Year)
-    yoy_rows_html = ""
-    if last_year is not None:
-        for svc in all_services:
-            this_m = metrics[current_year][svc]
-            last_m = metrics[last_year][svc]
-            d_vis = this_m['visitors'] - last_m['visitors']
-            d_vr  = this_m['vratio'] - last_m['vratio']   # pp
-            d_sty = this_m['stayed'] - last_m['stayed']
-            d_sr  = this_m['sratio'] - last_m['sratio']   # pp
-
-            def delta_cell(val, is_pp=False):
-                cls = "pos" if val > 0 else ("neg" if val < 0 else "zero")
-                txt = fmt_pp(val) if is_pp else fmt_int(val)
-                return f'<td class="num delta {cls}">{txt}</td>'
-
-            yoy_rows_html += f"""
-                <tr>
-                    <td class="t-service">{svc}</td>
-                    <td class="num">{fmt_int(last_m['visitors'])}</td>
-                    <td class="num">{fmt_int(this_m['visitors'])}</td>
-                    {delta_cell(d_vis)}
-                    <td class="num">{fmt_pct(last_m['vratio'])}</td>
-                    <td class="num">{fmt_pct(this_m['vratio'])}</td>
-                    {delta_cell(d_vr, is_pp=True)}
-                    <td class="num">{fmt_int(last_m['stayed'])}</td>
-                    <td class="num">{fmt_int(this_m['stayed'])}</td>
-                    {delta_cell(d_sty)}
-                    <td class="num">{fmt_pct(last_m['sratio'])}</td>
-                    <td class="num">{fmt_pct(this_m['sratio'])}</td>
-                    {delta_cell(d_sr, is_pp=True)}
-                </tr>
-            """
-
-    # ---- Full HTML (existing layout + NEW tables section right under the chart) ----
+    # Minimal HTML wrapper that just shows the chart
     html = f'''<!DOCTYPE html>
 <html>
 <head>
     <title>Visitor and Stay Dashboard</title>
     <meta charset="UTF-8">
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
         body {{
             font-family: Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
             margin: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #1e293b;
+            padding: 20px;
+            background: #f8fafc;
         }}
-        .container {{
-            max-width: 1400px;
+        .chart-wrapper {{
+            max-width: 1200px;
             margin: 0 auto;
             background: white;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            margin-top: 20px;
-            margin-bottom: 20px;
-        }}
-        .header {{
-            background: linear-gradient(135deg, #dc2626, #b91c1c);
-            color: white;
-            padding: 40px;
-            text-align: center;
-        }}
-        .header h1 {{ font-size: 2.5rem; font-weight: bold; margin: 0 0 15px 0; }}
-        .header p {{ font-size: 1.1rem; margin: 5px 0; opacity: 0.9; }}
-
-        .chart-container {{ padding: 20px; background: white; }}
-
-        /* NEW: Tables under the charts */
-        .tables-section {{
-            background: #ffffff;
-            padding: 8px 24px 32px;
-            border-top: 3px solid #e2e8f0;
-        }}
-        .table-title {{
-            color: #1e293b;
-            font-size: 1.35rem;
-            font-weight: 700;
-            margin: 10px 0 12px;
-        }}
-        table.data {{
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            overflow: hidden;
+            padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-            margin-bottom: 18px;
-        }}
-        table.data thead th {{
-            background: #f1f5f9;
-            color: #0f172a;
-            font-weight: 600;
-            text-align: center;
-            padding: 10px 8px;
-            border-bottom: 1px solid #e2e8f0;
-            position: sticky;
-            top: 0;
-            z-index: 1;
-        }}
-        table.data tbody td {{
-            padding: 10px 8px;
-            border-bottom: 1px solid #f1f5f9;
-            color: #334155;
-        }}
-        table.data tbody tr:nth-child(even) {{ background: #fafafa; }}
-        td.t-service {{ font-weight: 600; color: #0f172a; }}
-        td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
-        .delta.pos {{ color: #059669; font-weight: 700; }}
-        .delta.neg {{ color: #dc2626; font-weight: 700; }}
-        .delta.zero {{ color: #475569; font-weight: 700; }}
-
-        .special-events {{ background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; padding: 25px; border-radius: 12px; margin: 20px; }}
-        .special-events h3 {{ margin-top: 0; font-size: 1.4rem; }}
-        .special-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }}
-        .special-card {{ background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; text-align: center; }}
-        .special-number {{ font-size: 2rem; font-weight: bold; margin-bottom: 5px; }}
-        .special-label {{ font-size: 0.9rem; opacity: 0.9; }}
-
-        .summary-section {{
-            background: #f8fafc;
-            padding: 30px;
-            border-top: 3px solid #e2e8f0;
-        }}
-        .summary-title {{
-            color: #1e293b;
-            font-size: 1.8rem;
-            font-weight: bold;
-            margin-bottom: 25px;
-            text-align: center;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 15px;
-        }}
-        .metrics-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }}
-        .year-card {{
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            border-left: 5px solid;
         }}
-        .year-title {{ font-size: 1.4rem; font-weight: bold; color: #1e293b; margin-bottom: 20px; }}
-        .metric-row {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }}
-        .metric-label {{ font-weight: 500; color: #475569; }}
-        .metric-value {{ font-weight: bold; color: #1e293b; font-size: 1.1rem; }}
-
-        .methodology {{ background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 12px; padding: 25px; margin: 20px; }}
-        .methodology h3 {{ color: #1e293b; margin-top: 0; font-size: 1.3rem; }}
-        .methodology ul {{ color: #475569; line-height: 1.7; }}
-        .methodology li {{ margin-bottom: 8px; }}
-
-        .footer {{ background: #1e293b; color: #94a3b8; text-align: center; padding: 20px; font-size: 0.9rem; }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🚪 Visitor and Stay Dashboard</h1>
-            <p>Comprehensive Analysis of Visitor Numbers and Stay Rates</p>
-            <p>Three-Year Comparison Across Four Congregations</p>
-            <p>Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
-        </div>
-
-        <div class="chart-container">
-            {chart_div}
-        </div>
-
-        <!-- NEW: Numeric tables under the charts -->
-        <div class="tables-section">
-            <div class="table-title">📋 Data Table — values behind the charts</div>
-            <table class="data">
-                <thead>
-                    <tr>
-                        <th>Service</th>
-                        <th>Year</th>
-                        <th>Visitors</th>
-                        <th>Visitor Ratio (%)</th>
-                        <th>Stayed</th>
-                        <th>Stay Ratio (%)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {table_rows_html}
-                </tbody>
-            </table>
-            <div class="table-title" style="margin-top:26px;">↕️ Year-over-Year Change — Current vs Last Year</div>
-            <table class="data">
-                <thead>
-                    <tr>
-                        <th rowspan="2">Service</th>
-                        <th colspan="3">Visitors</th>
-                        <th colspan="3">Visitor Ratio (pp)</th>
-                        <th colspan="3">Stayed</th>
-                        <th colspan="3">Stay Ratio (pp)</th>
-                    </tr>
-                    <tr>
-                        <th>{last_year if last_year is not None else ''}</th>
-                        <th>{current_year}</th>
-                        <th>Δ</th>
-                        <th>{last_year if last_year is not None else ''}</th>
-                        <th>{current_year}</th>
-                        <th>Δ</th>
-                        <th>{last_year if last_year is not None else ''}</th>
-                        <th>{current_year}</th>
-                        <th>Δ</th>
-                        <th>{last_year if last_year is not None else ''}</th>
-                        <th>{current_year}</th>
-                        <th>Δ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {yoy_rows_html if last_year is not None else ''}
-                </tbody>
-            </table>
-            <p style="color:#64748b; font-size:0.9rem;">Visitor Ratio uses a grossed-up numerator for the current year so partial-year data is comparable with last year.</p>
-        </div>
-
-        <div class="special-events">
-            <h3>🎄🐣 Special Events Visitors</h3>
-            <div class="special-grid">'''
-
-    # Special events cards
-    for y in years:
-        visitors = visitor_data.get(y, {})
-        christmas = visitors.get('Christmas', 0)
-        easter = visitors.get('Easter', 0)
-        html += f'''
-                <div class="special-card">
-                    <div class="special-number">{christmas}</div>
-                    <div class="special-label">Christmas {y}</div>
-                </div>
-                <div class="special-card">
-                    <div class="special-number">{easter}</div>
-                    <div class="special-label">Easter {y}</div>
-                </div>'''
-
-    html += '''
-            </div>
-        </div>
-
-        <div class="summary-section">
-            <div class="summary-title">📊 Three-Year Summary</div>
-            <div class="metrics-grid">'''
-
-    # Year cards
-    for y in years:
-        visitors = visitor_data.get(y, {})
-        stayed = stayed_data.get(y, {})
-        averages = get_avg_map(y)
-        total_visitors = sum(visitors.get(s, 0) for s in regular_services)
-        total_stayed = sum(stayed.get(s, 0) for s in regular_services)
-        total_avg_congregation = sum(averages.get(s, 0) for s in regular_services)
-        overall_visitor_ratio = (total_visitors / total_avg_congregation * 100) if total_avg_congregation > 0 else 0
-        overall_stay_ratio = (total_stayed / total_visitors * 100) if total_visitors > 0 else 0
-
-        html += f'''
-                <div class="year-card year-{y}">
-                    <div class="year-title">{y}</div>
-                    <div class="metric-row">
-                        <span class="metric-label"><strong>OVERALL CHURCH:</strong></span>
-                        <span class="metric-value">{total_visitors}v/{total_stayed}s ({overall_visitor_ratio:.1f}%/{overall_stay_ratio:.1f}%)</span>
-                    </div>'''
-
-        for s in regular_services:
-            v_count = visitors.get(s, 0)
-            s_count = stayed.get(s, 0)
-            avg_cong = averages.get(s, 0)
-            v_ratio = (v_count / avg_cong * 100) if avg_cong > 0 else 0
-            s_ratio = (s_count / v_count * 100) if v_count > 0 else 0
-            html += f'''
-                    <div class="metric-row">
-                        <span class="metric-label">{s}:</span>
-                        <span class="metric-value">{v_count}v/{s_count}s ({v_ratio:.0f}%/{s_ratio:.0f}%)</span>
-                    </div>'''
-        html += '''</div>'''
-
-    html += f'''
-            </div>
-        </div>
-
-        <div class="methodology">
-            <h3>📋 Methodology & Notes</h3>
-            <ul>
-                <li><strong>Data Sources:</strong> Elvanto "People Category Change" and "New Visitors" reports for three years</li>
-                <li><strong>Visitor Classification:</strong> Locations assigned to largest service (10:30AM &gt; 8:30AM &gt; 6:30PM &gt; Mid-week)</li>
-                <li><strong>Stay Definition:</strong> Visitor categories moving to "Congregation_" or "RosteredMember_"</li>
-                <li><strong>Name Matching:</strong> Member ID then exact/partial name</li>
-                <li><strong>Empty Locations:</strong> Distributed proportionally (pro-rata)</li>
-                <li><strong>Special Events:</strong> Good Friday &amp; Easter → Easter; Christmas Eve/Day → Christmas</li>
-                <li><strong>Visitor Ratios:</strong> For the current year only, numerators are grossed up by a per-service factor. If service-counts data is missing, a months-based factor (12 ÷ completed months) is used.</li>
-            </ul>
-        </div>
-
-        <div class="footer">
-            Dashboard generated from Elvanto API data • {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
-        </div>
+    <div class="chart-wrapper">
+        {chart_html}
     </div>
 </body>
 </html>'''

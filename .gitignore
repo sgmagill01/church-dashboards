@@ -10,3 +10,6 @@ config.py
 # OS cruft
 .DS_Store
 
+# Generated outputs
+outputs/
+people_meta_cache.json

@@ -96,7 +96,7 @@ summary_stats = [
     "📉 Lowest Attendance (2023): <b>66.8</b>",
     "📊 2024 Average: <b>68.5</b>",
     "🎯 Strategic Plan 2025 Goal: <b>75.4</b>",
-    "📍 Current Attendance (September 2025): <b>73.5</b>  ",
+    "📍 Current Attendance (November 2025): <b>74.9</b>  ",
     "🚀 Projected 2029 (10% growth): <b>110.4</b>"
 ]
 

@@ -1505,6 +1505,12 @@ All "new to serving" and "new word-based" metrics calculated for calendar year {
 
 def main():
     try:
+        # Create outputs directory if it doesn't exist
+        outputs_dir = "outputs"
+        if not os.path.exists(outputs_dir):
+            os.makedirs(outputs_dir)
+            print(f"✅ Created '{outputs_dir}' directory")
+        
         # Fetch all data
         people = fetch_all_people()
         categories = fetch_categories()
@@ -1600,14 +1606,14 @@ def main():
         print("\n🎨 Generating Using Gifts Ministry Dashboard...")
         dashboard_html = generate_dashboard_html(metrics, processed_people, unassigned_people)
 
-        # Save dashboard
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"using_gifts_dashboard_{timestamp}.html"
+        # Save dashboard with consistent name (no timestamp - will overwrite)
+        html_filename = "using_gifts_dashboard.html"
+        html_filepath = os.path.join(outputs_dir, html_filename)
 
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(html_filepath, 'w', encoding='utf-8') as f:
             f.write(dashboard_html)
 
-        print(f"✅ Dashboard saved: {filename}")
+        print(f"✅ Dashboard saved: {html_filepath}")
 
         # Generate PNG image of the dashboard
         print("🖼️ Generating PNG image...")
@@ -1615,18 +1621,24 @@ def main():
             from html2image import Html2Image
             hti = Html2Image()
 
-            # Set up for high-quality image
-            png_filename = f"using_gifts_dashboard_{timestamp}.png"
+            # Set up for high-quality image with consistent name (no timestamp - will overwrite)
+            png_filename = "using_gifts_dashboard.png"
+            png_filepath = os.path.join(outputs_dir, png_filename)
 
             # Generate PNG from HTML file
             hti.screenshot(
-                html_file=filename,
+                html_file=html_filepath,
                 save_as=png_filename,
                 size=(1200, 1600)  # Width x Height - good for dashboard layout
             )
+            
+            # html2image saves in current directory, so move it to outputs
+            if os.path.exists(png_filename):
+                import shutil
+                shutil.move(png_filename, png_filepath)
 
-            print(f"✅ PNG image saved: {png_filename}")
-            print(f"📁 Both files ready for download in Replit!")
+            print(f"✅ PNG image saved: {png_filepath}")
+            print(f"📁 Both files ready in the '{outputs_dir}' directory!")
 
         except Exception as e:
             print(f"⚠️ PNG generation failed (HTML still available): {e}")
@@ -1668,13 +1680,13 @@ def main():
                 print(f"     • ... and {len(unassigned_people) - 10} more (see dashboard for full list)")
 
         # Open dashboard
-        file_path = os.path.abspath(filename)
+        file_path = os.path.abspath(html_filepath)
         webbrowser.open(f"file://{file_path}")
         print(f"\n🌐 Dashboard opened!")
-        print(f"📋 Files created:")
-        print(f"   • {filename} (interactive HTML)")
-        print(f"   • using_gifts_dashboard_{timestamp}.png (image for Google Docs)")
-        print(f"📥 Right-click files in Replit sidebar to download")
+        print(f"📋 Files created in '{outputs_dir}' directory:")
+        print(f"   • {html_filename} (interactive HTML)")
+        print(f"   • {png_filename} (image for Google Docs)")
+        print(f"💡 New runs will overwrite these files automatically")
 
     except Exception as e:
         print(f"❌ Error: {e}")

@@ -558,7 +558,7 @@ def filter_for_average_calculation(df, col_name):
     return filtered_df
 
 def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, years_choice):
-    """Create a single landscape dashboard with all four service charts"""
+    """Create a single landscape dashboard with all four service charts - HTML and PNG"""
     print(f"\n📊 Creating combined attendance dashboard with {years_choice} year(s) of data...")
     
     current_df = pd.DataFrame(current_data) if current_data else pd.DataFrame()
@@ -640,12 +640,12 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
     
     # Enhanced color scheme
     colors = {
-        'current': '#1e40af',      # Deep blue
-        'current_smooth': '#3b82f6', # Lighter blue for smoothed
-        'last': '#dc2626',         # Deep red
-        'last_smooth': '#ef4444',  # Lighter red for smoothed
-        'two_years': '#059669',    # Deep green
-        'two_years_smooth': '#10b981' # Lighter green for smoothed
+        'current': '#1e40af',
+        'current_smooth': '#3b82f6',
+        'last': '#dc2626',
+        'last_smooth': '#ef4444',
+        'two_years': '#059669',
+        'two_years_smooth': '#10b981'
     }
     
     # Chart configurations for 2x2 grid
@@ -660,7 +660,7 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
     print(f"\n🔄 Pre-calculating statistics for subplot titles...")
     
     subplot_titles_with_stats = []
-    all_stats = []  # For summary output
+    all_stats = []
     
     for chart_index, chart_config in enumerate(charts_config, 1):
         col_name = chart_config['col']
@@ -721,7 +721,7 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         # Create simple title (no stats) for subplot
         subplot_titles_with_stats.append(chart_title)
         
-        # Store stats for summary (maintaining original structure)
+        # Store stats for summary
         all_stats.append({
             'title': chart_title,
             'stats': stats_parts
@@ -735,17 +735,15 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
     else:
         dashboard_subtitle = "Three-Year Comparison Dashboard"
     
-    # Create subplot figure with 2x2 layout - NO TITLES (we'll add them in text boxes)
+    # Create subplot figure with 2x2 layout
     fig = make_subplots(
         rows=2, cols=2,
-        subplot_titles=None,  # No subplot titles
+        subplot_titles=None,
         vertical_spacing=0.25,
         horizontal_spacing=0.08,
         specs=[[{"secondary_y": False}, {"secondary_y": False}],
                [{"secondary_y": False}, {"secondary_y": False}]]
     )
-    
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     print(f"\n🔄 Processing {len(charts_config)} charts for combined dashboard...")
     
@@ -761,10 +759,8 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         if years_choice == 3 and len(two_years_df) > 0 and col_name in two_years_df.columns:
             print(f"  📊 Processing {two_years_label} data...")
             
-            # Calculate rolling average for smoothing (use all data for visual continuity)
             two_years_smooth = calculate_rolling_average(two_years_df[col_name].values, window=4)
             
-            # Create custom hover text with actual years
             hover_text_raw = [
                 f"{row_data['normalized_date'].strftime('%a %d %b')} {row_data['actual_year']}<br>{chart_title}: {row_data[col_name]}"
                 for _, row_data in two_years_df.iterrows()
@@ -775,13 +771,12 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                 for (_, row_data), smooth_val in zip(two_years_df.iterrows(), two_years_smooth)
             ]
             
-            # Add raw data (lighter, thinner line)
             fig.add_trace(
                 go.Scatter(
                     x=two_years_df['normalized_date'],
                     y=two_years_df[col_name],
                     mode='lines',
-                    name=f'{two_years_label} (Raw)' if chart_index == 1 else None,  # Only show in legend once
+                    name=f'{two_years_label} (Raw)' if chart_index == 1 else None,
                     line=dict(color=colors['two_years'], width=1, dash='dot'),
                     opacity=0.5,
                     hovertemplate='%{text}<extra></extra>',
@@ -792,13 +787,12 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                 row=row, col=col_pos
             )
             
-            # Add smoothed data (main line)
             fig.add_trace(
                 go.Scatter(
                     x=two_years_df['normalized_date'],
                     y=two_years_smooth,
                     mode='lines+markers',
-                    name=f'{two_years_label}' if chart_index == 1 else None,  # Remove average from legend
+                    name=f'{two_years_label}' if chart_index == 1 else None,
                     line=dict(color=colors['two_years_smooth'], width=3),
                     marker=dict(size=4, symbol='square'),
                     hovertemplate='%{text}<extra></extra>',
@@ -813,10 +807,8 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         if years_choice >= 2 and len(last_df) > 0 and col_name in last_df.columns:
             print(f"  📊 Processing {last_label} data...")
             
-            # Calculate rolling average for smoothing (use all data for visual continuity)
             last_smooth = calculate_rolling_average(last_df[col_name].values, window=4)
             
-            # Create custom hover text with actual years
             hover_text_raw = [
                 f"{row_data['normalized_date'].strftime('%a %d %b')} {row_data['actual_year']}<br>{chart_title}: {row_data[col_name]}"
                 for _, row_data in last_df.iterrows()
@@ -827,13 +819,12 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                 for (_, row_data), smooth_val in zip(last_df.iterrows(), last_smooth)
             ]
             
-            # Add raw data (lighter, thinner line)
             fig.add_trace(
                 go.Scatter(
                     x=last_df['normalized_date'],
                     y=last_df[col_name],
                     mode='lines',
-                    name=f'{last_label} (Raw)' if chart_index == 1 else None,  # Only show in legend once
+                    name=f'{last_label} (Raw)' if chart_index == 1 else None,
                     line=dict(color=colors['last'], width=1, dash='dot'),
                     opacity=0.5,
                     hovertemplate='%{text}<extra></extra>',
@@ -844,13 +835,12 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                 row=row, col=col_pos
             )
             
-            # Add smoothed data (main line)
             fig.add_trace(
                 go.Scatter(
                     x=last_df['normalized_date'],
                     y=last_smooth,
                     mode='lines+markers',
-                    name=f'{last_label}' if chart_index == 1 else None,  # Remove average from legend
+                    name=f'{last_label}' if chart_index == 1 else None,
                     line=dict(color=colors['last_smooth'], width=3),
                     marker=dict(size=4, symbol='circle'),
                     hovertemplate='%{text}<extra></extra>',
@@ -865,10 +855,8 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         if len(current_df) > 0 and col_name in current_df.columns:
             print(f"  📊 Processing {current_label} data...")
             
-            # Calculate rolling average for smoothing (use all data for visual continuity)
             current_smooth = calculate_rolling_average(current_df[col_name].values, window=4)
             
-            # Create custom hover text with actual years
             hover_text_raw = [
                 f"{row_data['normalized_date'].strftime('%a %d %b')} {row_data['actual_year']}<br>{chart_title}: {row_data[col_name]}"
                 for _, row_data in current_df.iterrows()
@@ -879,7 +867,6 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                 for (_, row_data), smooth_val in zip(current_df.iterrows(), current_smooth)
             ]
             
-            # Add raw data (lighter, thinner line)
             fig.add_trace(
                 go.Scatter(
                     x=current_df['normalized_date'],
@@ -896,13 +883,12 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                 row=row, col=col_pos
             )
             
-            # Add smoothed data (main line)
             fig.add_trace(
                 go.Scatter(
                     x=current_df['normalized_date'],
                     y=current_smooth,
                     mode='lines+markers',
-                    name=f'{current_label}' if chart_index == 1 else None,  # Remove average from legend
+                    name=f'{current_label}' if chart_index == 1 else None,
                     line=dict(color=colors['current_smooth'], width=3),
                     marker=dict(size=4, symbol='diamond'),
                     hovertemplate='%{text}<extra></extra>',
@@ -917,25 +903,23 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         stats = all_stats[chart_index - 1]
         if stats['stats']:
             for stat_text in stats['stats']:
-                # Add invisible trace that only appears in legend
                 fig.add_trace(
                     go.Scatter(
-                        x=[],  # No data points
-                        y=[],  # No data points
+                        x=[],
+                        y=[],
                         mode='markers',
-                        name=f"{chart_title[:5]}... | {stat_text}",  # Shortened chart name + stat
+                        name=f"{chart_title[:5]}... | {stat_text}",
                         showlegend=True,
-                        visible='legendonly',  # Only shows in legend
+                        visible='legendonly',
                         marker=dict(size=8, symbol='square', color='gray'),
-                        legendgroup=f'stats_{chart_index}'  # Group stats together
+                        legendgroup=f'stats_{chart_index}'
                     ),
                     row=row, col=col_pos
                 )
+        
         if col_name == '10:30 AM' and years_choice >= 2:
-            # Get the averages we calculated earlier
-            stats = all_stats[chart_index - 1]  # chart_index is 1-based
+            stats = all_stats[chart_index - 1]
             
-            # Parse last year average from stats if available
             last_avg = None
             current_avg = None
             for stat in stats['stats']:
@@ -945,9 +929,8 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                     current_avg = float(stat.split(': ')[1])
             
             if last_avg is not None:
-                target_2025 = last_avg * 1.10  # 10% growth from actual 2024 average
+                target_2025 = last_avg * 1.10
                 
-                # Add horizontal target line for 2025
                 fig.add_hline(
                     y=target_2025,
                     line=dict(color='#059669', width=2, dash='dash'),
@@ -962,21 +945,19 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                     row=row, col=col_pos
                 )
     
-    
-    # Set consistent x-axis range for all charts (full year)
+    # Set consistent x-axis range for all charts
     x_min = datetime(base_year, 1, 1)
     x_max = datetime(base_year, 12, 31)
     
-    print(f"\n📏 Calculating individual y-axis ranges for optimal visibility...")
+    print(f"\n🔍 Calculating individual y-axis ranges for optimal visibility...")
     
-    # Calculate individual y-axis ranges for each chart based on its actual data
+    # Calculate individual y-axis ranges for each chart
     chart_ranges = {}
     
     for chart_config in charts_config:
         col_name = chart_config['col']
         chart_values = []
         
-        # Collect values for this specific chart (only include requested years)
         if years_choice == 3 and len(two_years_df) > 0 and col_name in two_years_df.columns:
             chart_values.extend(two_years_df[col_name].tolist())
         if years_choice >= 2 and len(last_df) > 0 and col_name in last_df.columns:
@@ -987,7 +968,6 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         if chart_values:
             chart_min = max(0, min(chart_values) - 5)
             chart_max = max(chart_values) + 10
-            # Add some padding for better visibility
             padding = (chart_max - chart_min) * 0.1
             chart_max += padding
         else:
@@ -1007,7 +987,7 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         fig.update_xaxes(
             range=[x_min, x_max],
             tickformat='%b',
-            dtick='M2',  # Every 2 months for cleaner display
+            dtick='M2',
             showgrid=True,
             gridwidth=1,
             gridcolor='rgba(0,0,0,0.1)',
@@ -1023,80 +1003,30 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
             row=row, col=col_pos
         )
     
-    # Overall layout - STATS BOXES DISABLED FOR TESTING
-    annotations_list = []
+    # Build title text
+    title_main = "<b style='font-size:24px'>St George's Magill - Attendance Analysis</b>"
+    title_sub = f"<br><span style='font-size:14px; color:#64748b'>{dashboard_subtitle}</span>"
+    title_note = f"<br><span style='font-size:11px; color:#94a3b8'>Generated {datetime.now().strftime('%B %d, %Y')} • *Averages use only final January data point</span>"
+    full_title = title_main + title_sub + title_note
     
-    # COMMENTED OUT: Add statistics boxes in bottom right of each chart
-    # chart_stats_for_boxes = {}
+    # Build annotation texts
+    stats_text_0 = f"<b>8:30 AM Attendance</b><br>{' | '.join(all_stats[0]['stats'])}" if all_stats[0]['stats'] else "<b>8:30 AM Attendance</b>"
+    stats_text_1 = f"<b>10:30 AM Attendance</b><br>{' | '.join(all_stats[1]['stats'])}" if all_stats[1]['stats'] else "<b>10:30 AM Attendance</b>"
+    stats_text_2 = f"<b>6:30 PM Attendance</b><br>{' | '.join(all_stats[2]['stats'])}" if all_stats[2]['stats'] else "<b>6:30 PM Attendance</b>"
+    stats_text_3 = f"<b>Combined Attendance</b><br>{' | '.join(all_stats[3]['stats'])}" if all_stats[3]['stats'] else "<b>Combined Attendance</b>"
     
-    # # Re-collect stats for boxes (separate from title stats)
-    # for chart_index, chart_config in enumerate(charts_config, 1):
-    #     col_name = chart_config['col']
-    #     chart_title = chart_config['title']
-    #     row = chart_config['row']
-    #     col_pos = chart_config['col_pos']
-    #     
-    #     # Get the stats we calculated earlier
-    #     stats = all_stats[chart_index - 1]
-    #     if stats['stats']:
-    #         # Create more compact stats for boxes
-    #         box_stats = []
-    #         for stat in stats['stats']:
-    #             if 'Target:' in stat or 'Progress:' in stat:
-    #                 continue  # Skip target info for boxes
-    #             box_stats.append(stat)
-    #         
-    #         if box_stats:
-    #             box_text = "<br>".join(box_stats)
-    #             chart_stats_for_boxes[f"row{row}_col{col_pos}"] = box_text
-    
-    # # Position stats boxes in bottom right of each chart
-    # for chart_config in charts_config:
-    #     row = chart_config['row']
-    #     col_pos = chart_config['col_pos']
-    #     annotation_key = f"row{row}_col{col_pos}"
-    #     
-    #     if annotation_key in chart_stats_for_boxes:
-    #         # Position statistics - BOTTOM RIGHT OF EACH CHART (CORRECTED POSITIONS)
-    #         if row == 1 and col_pos == 1:      # Top-left chart (8:30 AM)
-    #             x_pos, y_pos = 0.42, 0.68  # Bottom right of top-left chart area
-    #         elif row == 1 and col_pos == 2:    # Top-right chart (10:30 AM) 
-    #             x_pos, y_pos = 0.92, 0.68  # Bottom right of top-right chart area
-    #         elif row == 2 and col_pos == 1:    # Bottom-left chart (6:30 PM)
-    #             x_pos, y_pos = 0.42, 0.26  # Bottom right of bottom-left chart area
-    #         else:                               # Bottom-right chart (Combined)
-    #             x_pos, y_pos = 0.92, 0.26  # Bottom right of bottom-right chart area
-    #         
-    #         annotations_list.append(
-    #             dict(
-    #                 text=f"<b>{chart_stats_for_boxes[annotation_key]}</b>",
-    #                 x=x_pos,
-    #                 y=y_pos,
-    #                 xref='paper',
-    #                 yref='paper',
-    #                 showarrow=False,
-    #                 align='left',
-    #                 font=dict(family="Inter, system-ui, sans-serif", size=9, color='#1e293b'),
-    #                 bgcolor="rgba(248,250,252,0.9)",
-    #                 bordercolor="rgba(0,0,0,0.1)",
-    #                 borderwidth=1,
-    #                 borderpad=3,
-    #                 xanchor='left',
-    #                 yanchor='top'
-    #             )
-    #         )
-    
+    # Overall layout
     fig.update_layout(
         title=dict(
-            text=f"<b style='font-size:24px'>St George's Magill - Attendance Analysis</b><br><span style='font-size:14px; color:#64748b'>{dashboard_subtitle}</span><br><span style='font-size:11px; color:#94a3b8'>Generated {datetime.now().strftime('%B %d, %Y')} • *Averages use only final January data point</span>",
+            text=full_title,
             x=0.5,
-            y=0.985,  # Back to normal position
+            y=0.985,
             font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", size=20, color='#1e293b')
         ),
         font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", size=12),
         plot_bgcolor='white',
         paper_bgcolor='white',
-        height=1200,  # BACK TO NORMAL HEIGHT - Plotly handles titles efficiently
+        height=1200,
         width=1600,
         hovermode='closest',
         legend=dict(
@@ -1110,24 +1040,20 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
             bordercolor="rgba(0,0,0,0.1)",
             borderwidth=1
         ),
-        margin=dict(l=80, r=80, t=140, b=120),  # Back to normal top margin
-        
-        # Add title and stats text boxes in top-right corner of each chart
+        margin=dict(l=80, r=80, t=140, b=120),
         annotations=[
-            # Dummy annotation to absorb the Plotly first-annotation bug
             dict(
                 text="",
-                x=0.01, y=0.01,  # Invisible position
+                x=0.01, y=0.01,
                 xref='paper', yref='paper',
                 showarrow=False,
-                font=dict(size=1, color='white'),  # Tiny invisible text
-                bgcolor="rgba(255,255,255,0)",  # Transparent background
+                font=dict(size=1, color='white'),
+                bgcolor="rgba(255,255,255,0)",
                 borderwidth=0
             ),
-            # Chart 1: 8:30 AM (top-left chart, text box in its top-right)
             dict(
-                text=f"<b>8:30 AM Attendance</b><br>{' | '.join(all_stats[0]['stats'])}" if all_stats[0]['stats'] else "<b>8:30 AM Attendance</b>",
-                x=0.44, y=0.94,  # Moved away from chart boundary
+                text=stats_text_0,
+                x=0.44, y=0.94,
                 xref='paper', yref='paper',
                 showarrow=False, align='right',
                 font=dict(family="Inter, system-ui, sans-serif", size=10, color='#1e293b'),
@@ -1136,10 +1062,9 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                 borderwidth=1, borderpad=5,
                 xanchor='right', yanchor='top'
             ),
-            # Chart 2: 10:30 AM (top-right chart, text box in its top-right)
             dict(
-                text=f"<b>10:30 AM Attendance</b><br>{' | '.join(all_stats[1]['stats'])}" if all_stats[1]['stats'] else "<b>10:30 AM Attendance</b>",
-                x=0.90, y=0.94,  # Moved away from chart boundary
+                text=stats_text_1,
+                x=0.90, y=0.94,
                 xref='paper', yref='paper',
                 showarrow=False, align='right',
                 font=dict(family="Inter, system-ui, sans-serif", size=10, color='#1e293b'),
@@ -1148,10 +1073,9 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                 borderwidth=1, borderpad=5,
                 xanchor='right', yanchor='top'
             ),
-            # Chart 3: 6:30 PM (bottom-left chart, text box in its top-right)
             dict(
-                text=f"<b>6:30 PM Attendance</b><br>{' | '.join(all_stats[2]['stats'])}" if all_stats[2]['stats'] else "<b>6:30 PM Attendance</b>",
-                x=0.44, y=0.45,  # Moved away from chart boundary for symmetry
+                text=stats_text_2,
+                x=0.44, y=0.45,
                 xref='paper', yref='paper',
                 showarrow=False, align='right',
                 font=dict(family="Inter, system-ui, sans-serif", size=10, color='#1e293b'),
@@ -1160,10 +1084,9 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                 borderwidth=1, borderpad=5,
                 xanchor='right', yanchor='top'
             ),
-            # Chart 4: Combined (bottom-right chart, text box in its top-right)
             dict(
-                text=f"<b>Combined Attendance</b><br>{' | '.join(all_stats[3]['stats'])}" if all_stats[3]['stats'] else "<b>Combined Attendance</b>",
-                x=0.90, y=0.45,  # Moved away from chart boundary for symmetry
+                text=stats_text_3,
+                x=0.90, y=0.45,
                 xref='paper', yref='paper',
                 showarrow=False, align='right',
                 font=dict(family="Inter, system-ui, sans-serif", size=10, color='#1e293b'),
@@ -1175,22 +1098,38 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         ]
     )
     
-    # Save the combined dashboard
-    html_filename = f"attendance_dashboard_combined_{timestamp}.html"
+    # Create outputs directory
+    import os
+    outputs_dir = "outputs"
+    os.makedirs(outputs_dir, exist_ok=True)
+    
+    # Use fixed filenames (without timestamps) - this will replace old files
+    html_filename = os.path.join(outputs_dir, "attendance_dashboard_combined.html")
+    png_filename = os.path.join(outputs_dir, "attendance_dashboard_combined.png")
+    
+    # Delete old files if they exist
+    if os.path.exists(html_filename):
+        os.remove(html_filename)
+        print(f"\n🗑️ Deleted old HTML file")
+    if os.path.exists(png_filename):
+        os.remove(png_filename)
+        print(f"🗑️ Deleted old PNG file")
+    
+    # Save both HTML and PNG
     try:
         fig.write_html(html_filename)
-        print(f"\n✅ Saved combined dashboard: {html_filename}")
+        print(f"\n✅ Saved HTML: {html_filename}")
     except Exception as e:
-        print(f"\n❌ Failed to save combined dashboard: {e}")
+        print(f"\n❌ Failed to save HTML: {e}")
+        return None
     
     try:
-        png_filename = f"attendance_dashboard_combined_{timestamp}.png"
-        fig.write_image(png_filename, width=1600, height=1200, scale=3)  # BACK TO NORMAL HEIGHT
+        fig.write_image(png_filename, width=1600, height=1200, scale=3)
         print(f"✅ Saved PNG: {png_filename}")
     except Exception as e:
         print(f"⚠️ PNG save failed: {e}")
     
-    print(f"\n📊 Combined dashboard ready: {html_filename}")
+    print(f"\n📊 Dashboard files ready in /outputs")
     
     # Print summary statistics
     print(f"\n📈 DASHBOARD SUMMARY:")
@@ -1199,233 +1138,7 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         for line in stat['stats']:
             print(f"    {line}")
     
-    return timestamp, html_filename
-
-def create_summary_page_for_dashboard(dashboard_file, timestamp, years_choice):
-    """Create a summary HTML page for the combined dashboard"""
-    print("\n📋 Creating summary page for combined dashboard...")
-    
-    # Determine titles based on years_choice
-    if years_choice == 1:
-        analysis_type = "Current Year Analysis"
-        comparison_description = "Single year attendance analysis with detailed statistics"
-        features_title = "Dashboard Features (CURRENT YEAR ANALYSIS)"
-    elif years_choice == 2:
-        analysis_type = "Two-Year Comparison Analysis"
-        comparison_description = "Year-over-year comparison with current and previous year data"
-        features_title = "Dashboard Features (TWO-YEAR COMPARISON)"
-    else:
-        analysis_type = "Three-Year Comparison Analysis"
-        comparison_description = "Comprehensive three-year trend analysis with historical comparison"
-        features_title = "Dashboard Features (THREE-YEAR COMPARISON)"
-    
-    html_content = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>St George's Attendance Dashboard - Summary</title>
-    <style>
-        body {{
-            font-family: Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            margin: 0;
-            padding: 40px;
-            min-height: 100vh;
-        }}
-        .container {{
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
-        }}
-        .header {{
-            text-align: center;
-            margin-bottom: 40px;
-            padding-bottom: 30px;
-            border-bottom: 3px solid #f0f0f0;
-        }}
-        .header h1 {{
-            font-size: 36px;
-            color: #1e293b;
-            margin: 0 0 10px 0;
-        }}
-        .header p {{
-            font-size: 18px;
-            color: #64748b;
-            margin: 0;
-        }}
-        .dashboard-card {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 20px;
-            padding: 40px;
-            text-align: center;
-            margin-bottom: 30px;
-            color: white;
-        }}
-        .dashboard-card h3 {{
-            font-size: 28px;
-            margin: 0 0 15px 0;
-        }}
-        .dashboard-card p {{
-            font-size: 16px;
-            margin: 0 0 25px 0;
-            opacity: 0.9;
-        }}
-        .dashboard-link {{
-            display: inline-block;
-            background: white;
-            color: #1e293b;
-            padding: 15px 30px;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 18px;
-            transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }}
-        .dashboard-link:hover {{
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-        }}
-        .features {{
-            background: #f8fafc;
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 30px;
-        }}
-        .features h3 {{
-            margin-top: 0;
-            color: #1e293b;
-            font-size: 24px;
-        }}
-        .feature-list {{
-            columns: 2;
-            column-gap: 30px;
-            list-style: none;
-            padding: 0;
-        }}
-        .feature-list li {{
-            margin: 10px 0;
-            color: #374151;
-            font-size: 14px;
-        }}
-        .feature-list li:before {{
-            content: "✨ ";
-            margin-right: 8px;
-        }}
-        .instructions {{
-            background: #fef3c7;
-            border: 1px solid #f59e0b;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 30px;
-        }}
-        .instructions h3 {{
-            margin-top: 0;
-            color: #92400e;
-        }}
-        .instructions p {{
-            color: #92400e;
-            margin: 10px 0;
-        }}
-        .important-note {{
-            background: #e0f2fe;
-            border: 1px solid #0ea5e9;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-        }}
-        .important-note h3 {{
-            margin-top: 0;
-            color: #0c4a6e;
-        }}
-        .important-note p {{
-            color: #0c4a6e;
-            margin: 10px 0;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>📊 St George's Attendance Dashboard</h1>
-            <p>{analysis_type}</p>
-            <p><small>Generated on {datetime.now().strftime('%A, %B %d, %Y at %I:%M %p')}</small></p>
-        </div>
-        
-        <div class="dashboard-card">
-            <h3>🏛️ Complete Attendance Analysis</h3>
-            <p>{comparison_description}</p>
-            <p><strong>Statistics embedded in chart titles for reliable visibility</strong></p>
-            <a href="{dashboard_file}" class="dashboard-link">📊 Open Dashboard</a>
-        </div>
-        
-        <div class="important-note">
-            <h3>🎯 Updated Calculation Method: Final January Point</h3>
-            <p><strong>New Approach:</strong> Average calculations now use only the final (latest) data point from January.</p>
-            <p><strong>Why:</strong> Early January often has combined services and holiday irregularities. The final January service is more representative of normal operations.</p>
-            <p><strong>Visual Impact:</strong> All January data still appears in charts for visual continuity, but averages use only the final January service.</p>
-            <p><strong>Result:</strong> More accurate yearly averages that avoid early January anomalies while still including representative January data.</p>
-        </div>
-        
-        <div class="features">
-            <h3>✨ {features_title}</h3>
-            <ul class="feature-list">
-                <li><strong>Statistics in Chart Titles:</strong> Embedded directly for guaranteed visibility</li>
-                <li>Uses only final January data point for average calculations</li>
-                <li>Avoids early January combined service irregularities</li>
-                <li>Maintains representative January data in yearly averages</li>
-                <li>Config.py API key handling for easy automation</li>
-                <li>User-selectable data years (1, 2, or 3 years)</li>"""
-    
-    # Add year-specific features
-    if years_choice >= 2:
-        html_content += """
-                <li><strong>Year-over-year comparison:</strong> Current vs previous year analysis</li>
-                <li>Change statistics with directional arrows</li>"""
-    
-    if years_choice == 3:
-        html_content += """
-                <li><strong>Three-year trends:</strong> Current (Blue), Last Year (Red), Two Years Ago (Green)</li>
-                <li>Historical trend analysis for strategic planning</li>"""
-    
-    if years_choice >= 2:
-        html_content += """
-                <li>Strategic growth targets for 10:30 AM service</li>
-                <li>Target progress tracking</li>"""
-    
-    html_content += """
-                <li>Professional 2×2 layout perfect for reports</li>
-                <li>High-resolution charts with modern typography</li>
-                <li>Rolling 4-week averages to smooth seasonal trends</li>
-                <li>Full January-December timeline view</li>
-                <li>Raw data lines plus smoothed trend lines</li>
-                <li>Individual y-axis scaling for optimal visibility</li>
-                <li>Interactive hover details with actual dates</li>
-                <li>Print-ready landscape format</li>
-            </ul>
-        </div>
-        
-        <div class="instructions">
-            <h3>📁 Accessing Your Dashboard</h3>
-            <p><strong>Main Dashboard:</strong> Click the "Open Dashboard" button above to view the complete analysis.</p>
-            <p><strong>In Replit:</strong> Look for "{dashboard_file}" in the left sidebar file explorer.</p>
-            <p><strong>Download:</strong> Right-click the file and select "Download" to save to your computer.</p>
-            <p><strong>Print:</strong> The landscape layout is optimized for printing on A4 or letter-size paper.</p>
-            <p><strong>Note:</strong> All statistics are now embedded in chart titles for guaranteed visibility.</p>
-        </div>
-    </div>
-</body>
-</html>"""
-    
-    summary_filename = f"attendance_dashboard_summary_{timestamp}.html"
-    with open(summary_filename, 'w', encoding='utf-8') as f:
-        f.write(html_content)
-    
-    print(f"✅ Dashboard summary page created: {summary_filename}")
-    return summary_filename
+    return html_filename
 
 def list_all_files_in_directory():
     """List all files in current directory for debugging"""
@@ -1437,159 +1150,107 @@ def list_all_files_in_directory():
             print(f"   📄 {file}")
 
 def main():
-    """Main execution function"""
+    """Main execution function (always generates 3-year charts, saves both HTML and PNG to outputs)"""
     try:
         print("🚀 Starting enhanced year-over-year attendance analysis...")
         print("📊 Note: Updated to use only the final January data point for averages")
-        
-        # Ask user how many years of data they want
-        while True:
-            try:
-                years_choice = input("\n📅 1, 2, or 3 years of data in the charts? (1/2/3): ").strip()
-                if years_choice in ['1', '2', '3']:
-                    years_choice = int(years_choice)
-                    break
-                else:
-                    print("Please enter 1, 2, or 3")
-            except (ValueError, KeyboardInterrupt):
-                print("Please enter 1, 2, or 3")
-        
-        print(f"✅ Will generate charts with {years_choice} year(s) of data")
-        
+        print("✅ Will generate charts with 3 years of data (auto-selected)")
+        print("📁 Output: HTML (interactive) and PNG files saved to /outputs directory")
+        print("🔄 Old dashboard files will be replaced with new versions")
+
+        # Always use 3 years
+        years_choice = 3
+
         # Find all three attendance report groups
         current_group, last_year_group, two_years_ago_group = find_attendance_report_groups()
-        
+
         if not current_group:
             print("❌ Cannot proceed without current year attendance report group")
             return
         
-        if years_choice >= 2 and not last_year_group:
+        if not last_year_group:
             print("❌ Last year attendance report group required but not found")
             return
             
-        if years_choice == 3 and not two_years_ago_group:
+        if not two_years_ago_group:
             print("❌ Two years ago attendance report group required but not found")
             return
-        
-        # Extract attendance data based on user choice
+
+        # Extract attendance data for 3 years
         current_df, current_headers, current_year = extract_attendance_data_from_group(current_group, "Current Year")
-        
-        last_df = None
-        last_headers = None
-        last_year = None
-        if years_choice >= 2:
-            last_df, last_headers, last_year = extract_attendance_data_from_group(last_year_group, "Last Year")
-        
-        two_years_df = None
-        two_years_headers = None
-        two_years_year = None
-        if years_choice == 3:
-            two_years_df, two_years_headers, two_years_year = extract_attendance_data_from_group(two_years_ago_group, "Two Years Ago")
-        
-        if current_df is None:
-            print("❌ Cannot proceed without current year dataset")
+        last_df, last_headers, last_year = extract_attendance_data_from_group(last_year_group, "Last Year")
+        two_years_df, two_years_headers, two_years_year = extract_attendance_data_from_group(two_years_ago_group, "Two Years Ago")
+
+        if current_df is None or last_df is None or two_years_df is None:
+            print("❌ One or more datasets missing - cannot proceed")
             return
-            
-        if years_choice >= 2 and last_df is None:
-            print("❌ Cannot proceed without last year dataset")
-            return
-            
-        if years_choice == 3 and two_years_df is None:
-            print("❌ Cannot proceed without two years ago dataset")
-            return
-        
-        # Parse service columns for available years
+
+        # Parse service columns
         current_services = parse_service_columns_for_year(current_headers, current_year, "Current Year")
-        
-        last_services = []
-        if years_choice >= 2:
-            last_services = parse_service_columns_for_year(last_headers, last_year, "Last Year")
-        
-        two_years_services = []
-        if years_choice == 3:
-            two_years_services = parse_service_columns_for_year(two_years_headers, two_years_year, "Two Years Ago")
-        
-        # Check what data we actually got
+        last_services = parse_service_columns_for_year(last_headers, last_year, "Last Year")
+        two_years_services = parse_service_columns_for_year(two_years_headers, two_years_year, "Two Years Ago")
+
         print(f"\n📊 Data Summary:")
         print(f"   Current year services: {len(current_services)}")
-        if years_choice >= 2:
-            print(f"   Last year services: {len(last_services)}")
-        if years_choice == 3:
-            print(f"   Two years ago services: {len(two_years_services)}")
-        
-        # If current year data is empty, try flexible parsing
-        if len(current_services) == 0:
+        print(f"   Last year services: {len(last_services)}")
+        print(f"   Two years ago services: {len(two_years_services)}")
+
+        if not current_services:
             print("⚠️ No current year data found. Trying flexible parsing...")
             current_services = parse_service_columns_for_year_flexible(current_headers, current_year, "Current Year (Flexible)")
         
         if not current_services:
             print("❌ Cannot proceed without current year service data")
             return
-        
-        # Calculate attendance by service for available years
-        current_attendance = calculate_service_attendance_by_year(current_df, current_services, "Current Year")
-        current_attendance = apply_pro_rata_logic_to_dataset(current_attendance, "Current Year")
-        
-        last_attendance = []
-        if years_choice >= 2 and last_services:
-            last_attendance = calculate_service_attendance_by_year(last_df, last_services, "Last Year")
-            last_attendance = apply_pro_rata_logic_to_dataset(last_attendance, "Last Year")
-        
-        two_years_attendance = []
-        if years_choice == 3 and two_years_services:
-            two_years_attendance = calculate_service_attendance_by_year(two_years_df, two_years_services, "Two Years Ago")
-            two_years_attendance = apply_pro_rata_logic_to_dataset(two_years_attendance, "Two Years Ago")
-        
-        # Create combined dashboard with requested number of years
-        timestamp, dashboard_file = create_enhanced_combined_dashboard(
-            current_attendance, 
-            last_attendance if years_choice >= 2 else [], 
-            two_years_attendance if years_choice == 3 else [],
-            years_choice
+
+        # Calculate attendance
+        current_attendance = apply_pro_rata_logic_to_dataset(
+            calculate_service_attendance_by_year(current_df, current_services, "Current Year"), 
+            "Current Year"
+        )
+        last_attendance = apply_pro_rata_logic_to_dataset(
+            calculate_service_attendance_by_year(last_df, last_services, "Last Year"), 
+            "Last Year"
+        )
+        two_years_attendance = apply_pro_rata_logic_to_dataset(
+            calculate_service_attendance_by_year(two_years_df, two_years_services, "Two Years Ago"), 
+            "Two Years Ago"
+        )
+
+        # Create combined dashboard (3 years) - saves both HTML and PNG to /outputs
+        html_file = create_enhanced_combined_dashboard(
+            current_attendance, last_attendance, two_years_attendance, years_choice
         )
         
-        # Create summary page that now points to the combined dashboard
-        summary_file = create_summary_page_for_dashboard(dashboard_file, timestamp, years_choice)
-        
-        # List all files for debugging
-        list_all_files_in_directory()
-        
-        print(f"\n🎉 UPDATED ATTENDANCE DASHBOARD WITH FINAL JANUARY METHOD!")
-        print(f"📊 Created single landscape dashboard with all 4 service charts")
-        if years_choice == 1:
-            print(f"📊 Current year analysis only")
-        elif years_choice == 2:
-            print(f"📊 TWO-YEAR COMPARISON: Current and Last Year")
-        else:
-            print(f"📊 THREE-YEAR COMPARISON: Current, Last Year, and Two Years Ago")
-        print(f"📄 Main file: {dashboard_file}")
-        print(f"📋 Summary: {summary_file}")
-        print(f"\n📁 TO VIEW YOUR DASHBOARD:")
-        print(f"   1. Open: {dashboard_file}")
-        print(f"   2. Or use summary page: {summary_file}")
-        print(f"\n✨ KEY FEATURES:")
-        print(f"   • NOW USES ONLY FINAL JANUARY DATA POINT for yearly averages")
-        if years_choice >= 2:
-            print(f"   • Year-over-year comparison with distinct colors")
-            print(f"   • Red lines for last year data")
-        if years_choice == 3:
-            print(f"   • Green lines for two years ago data")
-        print(f"   • Blue lines for current year data")
-        print(f"   • Statistics embedded in chart titles")
-        print(f"   • Avoids early January combined service irregularities")
-        print(f"   • Maintains representative January data in calculations")
-        print(f"   • Config.py API key handling")
-        
-        # Open the dashboard automatically
+        if not html_file:
+            print("❌ Failed to create dashboard")
+            return
+
+        # Open the HTML file automatically (for interactive hover features)
         try:
             import webbrowser
             import os
-            file_path = os.path.abspath(dashboard_file)
-            webbrowser.open(f"file://{file_path}")
-            print(f"\n🌐 Updated dashboard opened automatically!")
+            abs_path = os.path.abspath(html_file)
+            webbrowser.open(f"file://{abs_path}")
+            print(f"\n🌐 Interactive dashboard opened automatically!")
         except Exception as e:
             print(f"\n⚠️ Couldn't auto-open dashboard: {e}")
-        
+
+        print(f"\n🎉 UPDATED ATTENDANCE DASHBOARD WITH FINAL JANUARY METHOD!")
+        print(f"📊 THREE-YEAR COMPARISON: Current, Last Year, and Two Years Ago")
+        print(f"📄 HTML file (interactive): {html_file}")
+        print(f"🖼️ PNG file (static): {html_file.replace('.html', '.png')}")
+        print(f"\n✨ FEATURES:")
+        print(f"   • Uses final January data point for yearly averages")
+        print(f"   • Year-over-year comparison with color-coded lines (Blue, Red, Green)")
+        print(f"   • Statistics embedded in chart titles")
+        print(f"   • Avoids early January irregularities")
+        print(f"   • Interactive HTML with hover-over data details")
+        print(f"   • Static PNG for reports and presentations")
+        print(f"   • Both files saved to /outputs directory")
+        print(f"   • Old dashboard files automatically replaced")
+        print(f"   • HTML auto-opens for immediate viewing\n")
+
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
