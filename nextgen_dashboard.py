@@ -1296,6 +1296,67 @@ def calculate_rolling_average(values, window=4):
     
     return rolling_values
 
+def parse_and_normalize_dates(date_labels, year):
+    """
+    Parse date labels like '14/01' or '14/01/25' and normalize to a base year for comparison.
+    Returns list of datetime objects normalized to 2024 for year-over-year comparison.
+    """
+    if not date_labels:
+        return []
+    
+    normalized_dates = []
+    base_year = 2024  # Use 2024 as the base year for comparison
+    
+    for label in date_labels:
+        try:
+            # Try to parse various formats
+            parts = label.split('/')
+            if len(parts) >= 2:
+                day = int(parts[0])
+                month = int(parts[1])
+                
+                # Create date in base year for comparison
+                date_obj = datetime(base_year, month, day)
+                normalized_dates.append(date_obj)
+        except (ValueError, IndexError):
+            continue
+    
+    return normalized_dates
+
+def calculate_rolling_average_with_forward_fill(values, window=4):
+    """
+    Calculate rolling average with forward-fill for continuous lines.
+    When groups don't meet (zero values), the rolling average is forward-filled
+    from the last calculated value, keeping lines continuous during holidays.
+    """
+    if not values:
+        return []
+    
+    rolling_values = []
+    last_valid_avg = None
+    
+    for i in range(len(values)):
+        # Get the window of recent values
+        start_idx = max(0, i + 1 - window)
+        recent_values = values[start_idx:i+1]
+        
+        # Filter out zeros to calculate average only from weeks group met
+        non_zero_values = [v for v in recent_values if v > 0]
+        
+        if non_zero_values:
+            # Calculate average from non-zero values
+            avg = sum(non_zero_values) / len(non_zero_values)
+            last_valid_avg = avg
+            rolling_values.append(avg)
+        elif last_valid_avg is not None:
+            # Forward-fill: group didn't meet, use last valid average
+            rolling_values.append(last_valid_avg)
+        else:
+            # No data yet, use zero
+            rolling_values.append(0)
+    
+    return rolling_values
+
 def calculate_metrics(group_weekly_data, service_attendance_data, people_data, conversions, categories_by_id):
     """
     Calculates:
@@ -1598,8 +1659,8 @@ def create_dashboard(metrics):
             "Youth Group Participation — Church Youth (%)",
             "Serving Rate — Eligible NextGen (%)",
             "NextGen Conversions per Year",
-            "Weekly Attendance — Kids Club & Youth Group",
-            "Weekly Attendance — Buzz Playgroup (Tue)",
+            "Weekly Attendance — Kids Club (3-Year Comparison)",
+            "Weekly Attendance — Youth Group (3-Year Comparison)",
             "Church-attending participants of Kids Club & Youth Group — counts per year",
             "Program Weekly Averages (including leaders)",
             "Key Metrics Summary"
@@ -1655,28 +1716,64 @@ def create_dashboard(metrics):
         row=2, col=1
     )
 
-    # Current weekly lines
-    x1, y1 = series_for('current', 'kids_club')
-    x2, y2 = series_for('current', 'youth_group')
-    if y1:
-        fig.add_trace(
-            go.Scatter(x=x1, y=y1, mode='lines+markers',
-                       name="Kids Club", line=dict(color=colors['primary'], width=3)),
-            row=2, col=2
-        )
-    if y2:
-        fig.add_trace(
-            go.Scatter(x=x2, y=y2, mode='lines+markers',
-                       name="Youth Group", line=dict(color=colors['secondary'], width=3)),
-            row=2, col=2
-        )
-    xb, yb = series_for('current', 'buzz')
-    if yb:
-        fig.add_trace(
-            go.Scatter(x=xb, y=yb, mode='lines+markers',
-                       name="Buzz Playgroup", line=dict(color=colors['accent'], width=3)),
-            row=2, col=3
-        )
+    # ---- ROW 2, COL 2: Kids Club Weekly Attendance (3-year continuous trend lines) ----
+    for i, (year_key, year, color) in enumerate([
+        ('two_years_ago', years[0], colors['two_years_ago']),
+        ('last_year', years[1], colors['last_year']),
+        ('current', years[2], colors['current_year'])
+    ]):
+        x_labels, y_vals = series_for(year_key, 'kids_club')
+        if y_vals:
+            # Parse and normalize dates
+            x_dates = parse_and_normalize_dates(x_labels, year)
+            
+            if x_dates and len(x_dates) == len(y_vals):
+                # Calculate rolling average with forward-fill for continuous line
+                y_smooth = calculate_rolling_average_with_forward_fill(y_vals, window=4)
+                
+                # Plot only the smooth continuous trend line
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_dates,
+                        y=y_smooth,
+                        mode='lines',
+                        name=f'Kids Club {year}',
+                        line=dict(color=color, width=4),
+                        hovertemplate=f'<b>%{{x|%a %d %b}} {year}</b><br>4-Week Avg: %{{y:.1f}}<br><extra></extra>',
+                        showlegend=True
+                    ),
+                    row=2, col=2
+                )
+    
+    # ---- ROW 2, COL 3: Youth Group Weekly Attendance (3-year continuous trend lines) ----
+    for i, (year_key, year, color) in enumerate([
+        ('two_years_ago', years[0], colors['two_years_ago']),
+        ('last_year', years[1], colors['last_year']),
+        ('current', years[2], colors['current_year'])
+    ]):
+        x_labels, y_vals = series_for(year_key, 'youth_group')
+        if y_vals:
+            # Parse and normalize dates
+            x_dates = parse_and_normalize_dates(x_labels, year)
+            
+            if x_dates and len(x_dates) == len(y_vals):
+                # Calculate rolling average with forward-fill for continuous line
+                y_smooth = calculate_rolling_average_with_forward_fill(y_vals, window=4)
+                
+                # Plot only the smooth continuous trend line
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_dates,
+                        y=y_smooth,
+                        mode='lines',
+                        name=f'Youth Group {year}',
+                        line=dict(color=color, width=4),
+                        hovertemplate=f'<b>%{{x|%a %d %b}} {year}</b><br>4-Week Avg: %{{y:.1f}}<br><extra></extra>',
+                        showlegend=True
+                    ),
+                    row=2, col=3
+                )
+
 
     # Row 3, Col 1: Combined grouped bars (thinner)
     kids_counts  = count_list('church_kids_in_kids_club')
@@ -1806,20 +1903,25 @@ def create_dashboard(metrics):
                 row=row, col=col
             )
 
-    # Save / open (unchanged)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f'NextGen_Dashboard_{timestamp}.html'
+    # Save to outputs folder with fixed names (will overwrite on re-run)
+    # Create outputs folder if it doesn't exist
+    outputs_dir = 'outputs'
+    os.makedirs(outputs_dir, exist_ok=True)
+    
+    # Use fixed filenames (no timestamps - will overwrite)
+    html_filename = os.path.join(outputs_dir, 'NextGen_Dashboard.html')
+    png_filename = os.path.join(outputs_dir, 'NextGen_Dashboard.png')
+    
     try:
-        fig.write_html(filename)
-        print(f"✅ Dashboard saved as: {filename}")
+        fig.write_html(html_filename)
+        print(f"✅ Dashboard saved as: {html_filename}")
         try:
-            webbrowser.open(f'file://{os.path.abspath(filename)}')
+            webbrowser.open(f'file://{os.path.abspath(html_filename)}')
             print("✅ Dashboard opened successfully in browser")
         except Exception as e:
             print(f"⚠️ Could not auto-open dashboard: {e}")
-            print(f"Please manually open: {filename}")
+            print(f"Please manually open: {html_filename}")
         try:
-            png_filename = f'NextGen_Dashboard_{timestamp}.png'
             fig.write_image(png_filename, width=1600, height=1400, scale=2)
             print(f"✅ Also saved as PNG: {png_filename}")
         except Exception as e:
@@ -1828,7 +1930,7 @@ def create_dashboard(metrics):
         print(f"❌ Failed to save dashboard: {e}")
         return None
 
-    return filename
+    return html_filename
 
 def main():
     """Main execution function"""
