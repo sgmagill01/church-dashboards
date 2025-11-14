@@ -1573,15 +1573,15 @@ def is_youth_age(person):
 
 def create_dashboard(metrics):
     """
-    Build the NextGen dashboard.
+    Build the NextGen Dashboard.
 
     Changes in this version:
-      • Bottom-left & bottom-mid counts are combined into one grouped bar at (row=3, col=1)
-        with thinner bars and a clearer title.
-      • Bottom-mid (row=3, col=2) shows Program Weekly Averages computed over VALID WEEKS ONLY:
-          - weeks up to the last non-zero week (YTD window)
-          - zero weeks inside that window are excluded from the mean
-      • Bottom-right (row=3, col=3) keeps the Key Metrics Summary.
+      • Added strategic plan target lines to all relevant percentage charts
+      • Combined Program Weekly Averages and Strategic Plan Targets in Row 3, Col 2
+      • Maintains separate Kids Club and Youth Group 3-year comparison charts
+      • Uses three shades of blue for years
+      • Fixed table sizing and label positioning
+      • Saves outputs to 'outputs' directory with fixed filenames
     """
     print("\n🎨 Creating NextGen Dashboard...")
 
@@ -1589,21 +1589,18 @@ def create_dashboard(metrics):
     years = [current_year - 2, current_year - 1, current_year]
     year_labels = [str(y) for y in years]
 
-    # Colors
+    # Colors - Three shades of blue palette
     colors = {
-        'primary': '#0ea5e9',      # Sky blue
-        'secondary': '#8b5cf6',    # Purple
-        'accent': '#f59e0b',       # Amber
-        'success': '#10b981',      # Emerald
-        'warning': '#f97316',      # Orange
-        'danger': '#ef4444',       # Red
-        'text': '#1e293b',         # Slate 800
-        'text_light': '#64748b',   # Slate 500
-        'background': 'white',
-        'grid': 'rgba(148, 163, 184, 0.2)',
-        'current_year': '#0ea5e9',
-        'last_year': '#ef4444',
-        'two_years_ago': '#10b981'
+        'primary':       '#2E5090',    # Deep blue
+        'secondary':     '#8B4513',    # Saddle brown (for youth/kids differentiation)
+        'accent':        '#D4AF37',    # Gold
+        'background':    '#F8F9FA',    # Off-white
+        'text':          '#2C3E50',    # Dark slate
+        'text_light':    '#7F8C8D',    # Gray
+        'grid':          '#E0E0E0',    # Light gray
+        'two_years_ago': '#A8DADC',    # Powder blue (lightest)
+        'last_year':     '#457B9D',    # Steel blue (medium)
+        'current_year':  '#1D3557'     # Navy (darkest)
     }
 
     # Safe getters
@@ -1651,7 +1648,7 @@ def create_dashboard(metrics):
             return 0.0
         return float(np.round(np.mean(valid), 1))
 
-    # --- Figure & subplots (row 3 specs/titles adjusted) ---
+    # --- Figure & subplots ---
     fig = make_subplots(
         rows=3, cols=3,
         subplot_titles=[
@@ -1662,7 +1659,7 @@ def create_dashboard(metrics):
             "Weekly Attendance — Kids Club (3-Year Comparison)",
             "Weekly Attendance — Youth Group (3-Year Comparison)",
             "Church-attending participants of Kids Club & Youth Group — counts per year",
-            "Program Weekly Averages (including leaders)",
+            "Program Averages & Strategic Plan Targets",
             "Key Metrics Summary"
         ],
         specs=[
@@ -1684,6 +1681,19 @@ def create_dashboard(metrics):
         ),
         row=1, col=1
     )
+    # Add strategic target line for Kids Club (maintenance target)
+    fig.add_shape(
+        type="line",
+        x0=-0.5, x1=2.5, y0=75, y1=75,
+        line=dict(color="#2ecc71", width=2, dash="dash"),
+        row=1, col=1
+    )
+    fig.add_annotation(
+        x=0, y=75, text="Target: 75%",
+        showarrow=False, xanchor="left", yanchor="bottom",
+        font=dict(size=10, color="#2ecc71"),
+        row=1, col=1
+    )
 
     youth_group_values = pct_list('church_youth_in_youth_group')
     fig.add_trace(
@@ -1692,6 +1702,19 @@ def create_dashboard(metrics):
             marker_color=[colors['two_years_ago'], colors['last_year'], colors['current_year']],
             text=[f"{v:.1f}%" for v in youth_group_values], textposition='outside', cliponaxis=False
         ),
+        row=1, col=2
+    )
+    # Add strategic target line for Youth Group
+    fig.add_shape(
+        type="line",
+        x0=-0.5, x1=2.5, y0=75, y1=75,
+        line=dict(color="#e74c3c", width=2, dash="dash"),
+        row=1, col=2
+    )
+    fig.add_annotation(
+        x=0, y=78, text="2029 Target: 75%",
+        showarrow=False, xanchor="left", yanchor="bottom",
+        font=dict(size=10, color="#e74c3c"),
         row=1, col=2
     )
 
@@ -1704,6 +1727,31 @@ def create_dashboard(metrics):
         ),
         row=1, col=3
     )
+    # Add strategic target lines for serving rate
+    fig.add_shape(
+        type="line",
+        x0=-0.5, x1=2.5, y0=60, y1=60,
+        line=dict(color="#f39c12", width=2, dash="dash"),
+        row=1, col=3
+    )
+    fig.add_annotation(
+        x=2.5, y=60, text="2026 Target: 60%",
+        showarrow=False, xanchor="right", yanchor="bottom",
+        font=dict(size=10, color="#f39c12"),
+        row=1, col=3
+    )
+    fig.add_shape(
+        type="line",
+        x0=-0.5, x1=2.5, y0=75, y1=75,
+        line=dict(color="#e74c3c", width=2, dash="dash"),
+        row=1, col=3
+    )
+    fig.add_annotation(
+        x=2.5, y=75, text="2029 Target: 75%",
+        showarrow=False, xanchor="right", yanchor="bottom",
+        font=dict(size=10, color="#e74c3c"),
+        row=1, col=3
+    )
 
     # Row 2: Conversions and weekly series
     conversion_values = [conversions_count(y) for y in years]
@@ -1713,6 +1761,31 @@ def create_dashboard(metrics):
             marker_color=[colors['two_years_ago'], colors['last_year'], colors['current_year']],
             text=conversion_values, textposition='outside', cliponaxis=False
         ),
+        row=2, col=1
+    )
+    # Add strategic target lines for conversions
+    fig.add_shape(
+        type="line",
+        x0=-0.5, x1=2.5, y0=2, y1=2,
+        line=dict(color="#f39c12", width=2, dash="dash"),
+        row=2, col=1
+    )
+    fig.add_annotation(
+        x=2.5, y=2, text="2026 Target: 2",
+        showarrow=False, xanchor="right", yanchor="bottom",
+        font=dict(size=10, color="#f39c12"),
+        row=2, col=1
+    )
+    fig.add_shape(
+        type="line",
+        x0=-0.5, x1=2.5, y0=5, y1=5,
+        line=dict(color="#e74c3c", width=2, dash="dash"),
+        row=2, col=1
+    )
+    fig.add_annotation(
+        x=2.5, y=5, text="2029 Target: 5",
+        showarrow=False, xanchor="right", yanchor="bottom",
+        font=dict(size=10, color="#e74c3c"),
         row=2, col=1
     )
 
@@ -1774,8 +1847,7 @@ def create_dashboard(metrics):
                     row=2, col=3
                 )
 
-
-    # Row 3, Col 1: Combined grouped bars (thinner)
+    # Row 3, Col 1: Combined grouped bars
     kids_counts  = count_list('church_kids_in_kids_club')
     youth_counts = count_list('church_youth_in_youth_group')
 
@@ -1796,7 +1868,8 @@ def create_dashboard(metrics):
         row=3, col=1
     )
 
-    # Row 3, Col 2: Program Weekly Averages (valid weeks only)
+    # Row 3, Col 2: Combined Program Weekly Averages & Strategic Plan Targets
+    # Calculate program averages
     programs = [
         ("Kids Club",   "kids_club"),
         ("Youth Group", "youth_group"),
@@ -1806,25 +1879,50 @@ def create_dashboard(metrics):
     avg_two   = [yearly_avg(p[1], 'two_years_ago') for p in programs]
     avg_last  = [yearly_avg(p[1], 'last_year')     for p in programs]
     avg_curr  = [yearly_avg(p[1], 'current')       for p in programs]
-
+    
+    # Strategic targets
+    strategic_metrics = [
+        "Year 6 KC → YG Transition",
+        "KC Unchurched Families",
+        "YG Unchurched Families"
+    ]
+    baseline_values = ["33%", "2", "1"]
+    target_2026 = ["50%", "4", "4"]
+    target_2029 = ["50%", "6", "6"]
+    
+    # Combine both into one table
+    all_metrics = (["<b>PROGRAM WEEKLY AVERAGES</b>"] + prog_names + 
+                   ["", "<b>STRATEGIC PLAN TARGETS</b>"] + strategic_metrics)
+    
+    col1_data = (["Two Years Ago"] + [f"{avg:.1f}" if avg > 0 else "-" for avg in avg_two] +
+                 ["", "2025 Baseline"] + baseline_values)
+    
+    col2_data = (["Last Year"] + [f"{avg:.1f}" if avg > 0 else "-" for avg in avg_last] +
+                 ["", "2026 Target"] + target_2026)
+    
+    col3_data = (["Current Year"] + [f"{avg:.1f}" if avg > 0 else "-" for avg in avg_curr] +
+                 ["", "2029 Target"] + target_2029)
+    
     fig.add_trace(
         go.Table(
             header=dict(
-                values=["Program", "Two Years Ago", "Last Year", "Current Year"],
+                values=["<b>Metric</b>", "<b>Column 1</b>", "<b>Column 2</b>", "<b>Column 3</b>"],
                 fill_color=colors['primary'],
-                font=dict(color='white', size=12)
+                font=dict(color='white', size=10),
+                align='left'
             ),
             cells=dict(
-                values=[prog_names, avg_two, avg_last, avg_curr],
+                values=[all_metrics, col1_data, col2_data, col3_data],
                 fill_color='lightgrey',
-                font=dict(size=11),
-                format=[None, ".1f", ".1f", ".1f"]
+                font=dict(size=9),
+                align='left',
+                height=20
             )
         ),
         row=3, col=2
     )
 
-    # Row 3, Col 3: Key Metrics Summary (unchanged)
+    # Row 3, Col 3: Key Metrics Summary
     summary_rows = [
         ["Kids Club Participation — Church Children (%)",
          f"{kids_club_values[2]:.1f}%", f"{kids_club_values[1]:.1f}%",
@@ -1879,8 +1977,6 @@ def create_dashboard(metrics):
         paper_bgcolor=colors['background'],
         height=1400, width=1600, showlegend=True,
         margin=dict(l=80, r=80, t=150, b=80),
-
-        # Grouped bars look
         barmode="group",
         bargap=0.25,
         bargroupgap=0.18
