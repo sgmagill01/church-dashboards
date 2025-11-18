@@ -9,6 +9,7 @@ Follow-up list: First shows zero attendance this year, then last year
 import subprocess
 import sys
 
+
 # Auto-install required packages
 def install_packages():
     """
@@ -28,6 +29,7 @@ def install_packages():
         except ImportError:
             print(f"Installing {package}...")
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
+
 
 # Install packages first
 install_packages()
@@ -58,12 +60,14 @@ except AttributeError:
     sys.exit(1)
 BASE_URL = "https://api.elvanto.com/v1/"
 
+
 def get_api_key():
     """Get API key from user input"""
     global API_KEY
     if not API_KEY:
         API_KEY = input("Enter your Elvanto API key: ").strip()
     return API_KEY
+
 
 def make_request(endpoint, params=None):
     """Make authenticated request to Elvanto API with better debugging"""
@@ -95,6 +99,7 @@ def make_request(endpoint, params=None):
         print(f"   Request failed: {e}")
         return None
 
+
 def is_bible_study_group(group):
     """Check if group has the 'Bible Study Groups_' category"""
     if group.get('categories') and group['categories'].get('category'):
@@ -111,6 +116,7 @@ def is_bible_study_group(group):
                 return True
     return False
 
+
 def test_api_connection():
     """Test API connection"""
     print("Testing API connection...")
@@ -122,11 +128,13 @@ def test_api_connection():
         print("API connection failed!")
         return False
 
+
 def normalize_name(name):
     """Normalize a name for comparison"""
     if not name:
         return ""
     return re.sub(r'[^a-zA-Z0-9\s]', '', name.lower()).strip()
+
 
 def find_attendance_report_groups():
     """Find attendance report groups (reports are stored as groups in Elvanto)"""
@@ -173,6 +181,7 @@ def find_attendance_report_groups():
 
     return current_year_group, last_year_group
 
+
 def download_group_attendance_data(group):
     """Download attendance data from a group (following successful pattern)"""
     if not group:
@@ -208,6 +217,7 @@ def download_group_attendance_data(group):
     except Exception as e:
         print(f"Error fetching report: {e}")
         return None
+
 
 def extract_groups_from_attendance_data(html_content):
     """Extract group names and attendance from HTML report data"""
@@ -278,9 +288,9 @@ def extract_groups_from_attendance_data(html_content):
             is_group_header = True
         
         if is_group_header:
-            # Process previous group data
+            # Process previous group data - NOW PASS date_info
             if current_group and group_rows:
-                group_data[current_group] = process_group_attendance(current_group, group_rows, date_columns)
+                group_data[current_group] = process_group_attendance(current_group, group_rows, date_columns, date_info)
             
             # Start new group
             current_group = first_cell_text
@@ -296,17 +306,19 @@ def extract_groups_from_attendance_data(html_content):
             if first_cell_value and ',' in first_cell_value:
                 group_rows.append(row_data)
     
-    # Don't forget the last group
+    # Don't forget the last group - NOW PASS date_info
     if current_group and group_rows:
-        group_data[current_group] = process_group_attendance(current_group, group_rows, date_columns)
+        group_data[current_group] = process_group_attendance(current_group, group_rows, date_columns, date_info)
     
     return group_data
 
-def process_group_attendance(group_name, group_rows, date_columns):
+
+def process_group_attendance(group_name, group_rows, date_columns, date_info):
     """Process attendance data for a specific group"""
     group_attendees = []
     group_all_people = []
     group_recent_missed = []
+    member_last_attended = {}  # Track last attended date STRING for each member
     
     # Find which date columns this group actually used (had meetings)
     group_meeting_dates = []
@@ -347,6 +359,18 @@ def process_group_attendance(group_name, group_rows, date_columns):
             # Add to all_people list (everyone who appears in report)
             group_all_people.append(full_name)
             
+            # Track last attended date STRING for this person
+            last_attended_col = None
+            for col_idx in group_meeting_dates:
+                if col_idx < len(row_data):
+                    cell = str(row_data[col_idx]).strip().upper()
+                    if cell == 'Y':  # Attended
+                        last_attended_col = col_idx  # Keep updating to get the LAST attendance
+            
+            if last_attended_col is not None and last_attended_col in date_info:
+                # Convert column index to actual date string
+                member_last_attended[full_name] = date_info[last_attended_col]
+            
             # Check if this person has ANY attendance in any group meeting dates
             attended_any = False
             for col_idx in group_meeting_dates:
@@ -386,8 +410,10 @@ def process_group_attendance(group_name, group_rows, date_columns):
     return {
         'attendees': unique_attendees,
         'all_people': unique_all_people,
-        'recent_missed': unique_recent_missed
+        'recent_missed': unique_recent_missed,
+        'member_last_attended': member_last_attended  # Now contains date STRINGS not indices
     }
+
 
 def fetch_all_groups_from_api():
     """Fetch all groups from API"""
@@ -397,7 +423,7 @@ def fetch_all_groups_from_api():
     while True:
         print(f"Groups page {page}...", end=" ")
         response = make_request('groups/getAll', {
-            'page': page, 
+            'page': page,
             'page_size': 1000,
             'fields': ['people', 'categories']
         })
@@ -414,6 +440,7 @@ def fetch_all_groups_from_api():
         page += 1
     print(f"Total groups: {len(all_groups)}")
     return all_groups
+
 
 def extract_monthly_attendance_data(html_content, year_label):
     """Extract monthly attendance data from HTML report"""
@@ -499,9 +526,11 @@ def extract_monthly_attendance_data(html_content, year_label):
     
     return monthly_data
 
+
 def create_progressive_attendance_charts(current_monthly_data, last_year_monthly_data, current_year, last_year):
     """Create progressive attendance charts with consistent colors, 3-across layout,
-    save a PNG in the working folder, and auto-open it."""
+    save a PNG in the outputs folder, and auto-open it."""
+    
     import os, math, subprocess, sys
     from datetime import datetime
     import plotly.graph_objects as go
@@ -509,10 +538,14 @@ def create_progressive_attendance_charts(current_monthly_data, last_year_monthly
 
     print("Creating progressive monthly attendance charts...")
 
+    # Create outputs directory
+    outputs_dir = 'outputs'
+    os.makedirs(outputs_dir, exist_ok=True)
+
     # ----- Fixed colors so they are consistent across ALL subplots -----
-    COLOR_THIS_YEAR  = '#3B82F6'  # blue-500
-    COLOR_LAST_YEAR  = '#F97316'  # orange-500
-    COLOR_BENCHMARK  = '#22C55E'  # green-500
+    COLOR_THIS_YEAR = '#3B82F6'  # blue-500
+    COLOR_LAST_YEAR = '#F97316'  # orange-500
+    COLOR_BENCHMARK = '#22C55E'  # green-500
 
     # Categorize groups
     def categorize_group(group_name):
@@ -551,7 +584,7 @@ def create_progressive_attendance_charts(current_monthly_data, last_year_monthly
         return months, cumulative
 
     # Individual group list
-    individual_groups = sorted(set(list((current_monthly_data or {}).keys()) +
+    individual_groups = sorted(set(list((current_monthly_data or {}).keys()) + 
                                    list((last_year_monthly_data or {}).keys())))
     num_individual = len(individual_groups)
 
@@ -560,7 +593,7 @@ def create_progressive_attendance_charts(current_monthly_data, last_year_monthly
     cols = 3
     rows = math.ceil(total_charts / cols)
 
-    month_names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
     # Titles: 4 summary + all individuals
     titles = [
@@ -592,12 +625,12 @@ def create_progressive_attendance_charts(current_monthly_data, last_year_monthly
         last_m, last_cum = create_cumulative_data(last_year_categories[cat], last_year)
         this_m, this_cum = create_cumulative_data(categories[cat], current_year)
 
-        last_labels = [month_names[m-1] for m in last_m]
-        this_labels = [month_names[m-1] for m in this_m]
+        last_labels = [month_names[m - 1] for m in last_m]
+        this_labels = [month_names[m - 1] for m in this_m]
 
         # 10% benchmark line based on last year total
         benchmark_target = (last_cum[-1] if last_cum else 0) * 1.10
-        benchmark_line = [(benchmark_target * (i+1) / 12.0) for i in range(len(this_m))]
+        benchmark_line = [(benchmark_target * (i + 1) / 12.0) for i in range(len(this_m))]
 
         # Last year
         fig.add_trace(
@@ -634,11 +667,11 @@ def create_progressive_attendance_charts(current_monthly_data, last_year_monthly
         this_m, this_cum = create_cumulative_data(this_data, current_year)
         last_m, last_cum = create_cumulative_data(last_data, last_year)
 
-        this_labels = [month_names[m-1] for m in this_m]
-        last_labels = [month_names[m-1] for m in last_m]
+        this_labels = [month_names[m - 1] for m in this_m]
+        last_labels = [month_names[m - 1] for m in last_m]
 
         benchmark_target = (last_cum[-1] if last_cum else 0) * 1.10
-        benchmark_line = [(benchmark_target * (i+1) / 12.0) for i in range(len(this_m))]
+        benchmark_line = [(benchmark_target * (i + 1) / 12.0) for i in range(len(this_m))]
 
         if last_cum:
             fig.add_trace(
@@ -681,9 +714,9 @@ def create_progressive_attendance_charts(current_monthly_data, last_year_monthly
         legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="center", x=0.5)
     )
 
-    # ----- Save both HTML and PNG to the current working folder -----
-    html_name = f"bible_study_progressive_attendance_calendar_years_{current_year}_{last_year}.html"
-    png_name  = f"bible_study_progressive_attendance_calendar_years_{current_year}_{last_year}.png"
+    # Save both HTML and PNG to outputs directory
+    html_name = os.path.join(outputs_dir, 'bible_study_progressive_attendance.html')
+    png_name = os.path.join(outputs_dir, 'bible_study_progressive_attendance.png')
 
     try:
         fig.write_html(html_name)
@@ -693,16 +726,16 @@ def create_progressive_attendance_charts(current_monthly_data, last_year_monthly
 
     # PNG requires kaleido
     try:
-        fig.write_image(png_name, width=width, height=height, scale=2)  # high-res
+        fig.write_image(png_name, width=width, height=height, scale=2)
         png_path = os.path.abspath(png_name)
         print(f"✅ Saved PNG: {png_path}")
 
-        # ----- Auto-open the PNG (cross-platform) -----
+        # Auto-open the PNG (cross-platform)
         try:
             if sys.platform.startswith('darwin'):
                 subprocess.Popen(['open', png_path])
             elif os.name == 'nt':
-                os.startfile(png_path)  # type: ignore[attr-defined]
+                os.startfile(png_path)
             else:
                 subprocess.Popen(['xdg-open', png_path])
             print("✅ PNG auto-opened.")
@@ -711,6 +744,7 @@ def create_progressive_attendance_charts(current_monthly_data, last_year_monthly
             print(f"   Please open manually: {png_path}")
     except Exception as e:
         print(f"❌ PNG save failed (is 'kaleido' installed?): {e}")
+
 
 def create_charts(follow_up_this_year, follow_up_last_year, current_year, last_year):
     """Create bar charts showing number of people needing follow-up per group"""
@@ -726,9 +760,9 @@ def create_charts(follow_up_this_year, follow_up_last_year, current_year, last_y
     last_year_groups = list(follow_up_last_year.keys())
     last_year_counts = [len(follow_up_last_year[group]) for group in last_year_groups]
     
-    # Create subplots - SIDE BY SIDE instead of top/bottom
+    # Create subplots - SIDE BY SIDE
     fig = make_subplots(
-        rows=1, cols=2,  # Side by side layout
+        rows=1, cols=2,
         subplot_titles=[
             f'Zero Attendance This Calendar Year ({current_year})',
             f'Zero Attendance Last Calendar Year ({last_year})'
@@ -766,8 +800,8 @@ def create_charts(follow_up_this_year, follow_up_last_year, current_year, last_y
     fig.update_layout(
         title=f'Bible Study Group Follow-up Analysis - Calendar Years {last_year} & {current_year}',
         showlegend=False,
-        height=600,  # Reduced height since side-by-side
-        width=1400,  # Increased width for side-by-side
+        height=600,
+        width=1400,
         font=dict(size=12)
     )
     
@@ -776,34 +810,26 @@ def create_charts(follow_up_this_year, follow_up_last_year, current_year, last_y
     fig.update_yaxes(title_text="Number of People", row=1, col=1)
     fig.update_yaxes(title_text="Number of People", row=1, col=2)
     
-    # Save chart with absolute path info
+    # Save to outputs directory
     import os
-    filename = f"bible_study_followup_calendar_years_{current_year}_{last_year}.html"
-    current_dir = os.getcwd()
-    full_path = os.path.join(current_dir, filename)
+    outputs_dir = 'outputs'
+    os.makedirs(outputs_dir, exist_ok=True)
     
-    # Remove existing file if it exists to ensure we can overwrite
-    if os.path.exists(full_path):
-        try:
-            os.remove(full_path)
-            print(f"   Removed existing file: {filename}")
-        except Exception as e:
-            print(f"   Warning: Could not remove existing file: {e}")
+    html_filename = os.path.join(outputs_dir, 'bible_study_followup_chart.html')
+    png_filename = os.path.join(outputs_dir, 'bible_study_followup_chart.png')
     
     try:
-        fig.write_html(filename)
-        print("Chart saved successfully!")
-        print(f"   Directory: {current_dir}")
-        print(f"   Filename: {filename}")
-        print(f"   Full path: {full_path}")
-        print(f"   File exists: {os.path.exists(full_path)}")
-        if os.path.exists(full_path):
-            file_size = os.path.getsize(full_path)
-            print(f"   File size: {file_size} bytes")
+        fig.write_html(html_filename)
+        print(f"✅ Chart saved: {html_filename}")
     except Exception as e:
-        print(f"Error saving chart: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"⚠️ Could not save HTML: {e}")
+    
+    try:
+        fig.write_image(png_filename, width=1400, height=600, scale=2)
+        print(f"✅ PNG saved: {png_filename}")
+    except Exception as e:
+        print(f"⚠️ PNG save failed: {e}")
+
 
 def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, follow_up_last_year, current_year, last_year):
     """Create detailed HTML report of members needing follow-up"""
@@ -821,175 +847,197 @@ def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, fo
     <title>Bible Study Follow-up List - Calendar Years {last_year} & {current_year}</title>
     <style>
         body {{
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
             margin: 0;
             padding: 20px;
-            line-height: 1.6;
+            line-height: 1.5;
+            font-size: 12px;
         }}
         
         .container {{
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
-            background: rgba(15, 23, 42, 0.9);
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(20px);
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }}
         
         .header {{
-            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
             color: white;
-            padding: 30px;
-            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
             text-align: center;
         }}
         
         .header h1 {{
-            font-size: 2.5rem;
-            font-weight: bold;
-            margin-bottom: 10px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0 0 5px 0;
+        }}
+        
+        .header p {{
+            margin: 0;
+            font-size: 0.9rem;
+            opacity: 0.95;
         }}
         
         .summary {{
-            padding: 30px;
-            background: rgba(30, 41, 59, 0.5);
-            border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+            padding: 20px;
+            background: #f8fafb;
+            border-bottom: 1px solid #e1e8ed;
         }}
         
         .summary h2 {{
-            color: #60a5fa;
-            margin-bottom: 20px;
-            font-size: 1.8rem;
+            color: #2c3e50;
+            margin: 0 0 12px 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }}
+        
+        .summary p {{
+            margin: 0 0 8px 0;
+            font-size: 0.9rem;
+            color: #546e7a;
         }}
         
         .summary-stats {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
+            gap: 12px;
+            margin-top: 12px;
         }}
         
         .stat-card {{
-            background: rgba(30, 41, 59, 0.4);
-            padding: 15px;
-            border-radius: 10px;
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
             text-align: center;
+            border: 1px solid #e1e8ed;
         }}
         
         .stat-number {{
-            font-size: 2rem;
+            font-size: 1.8rem;
             font-weight: bold;
-            color: #60a5fa;
+            color: #5e72e4;
         }}
         
         .stat-label {{
-            color: #94a3b8;
-            font-size: 0.9rem;
+            color: #78909c;
+            font-size: 0.85rem;
+            margin-top: 4px;
         }}
         
         .section-title {{
-            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            background: #5e72e4;
             color: white;
-            padding: 20px 30px;
-            font-size: 1.5rem;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: 600;
             margin: 0;
         }}
         
         .section-title.urgent {{
-            background: linear-gradient(135deg, #dc2626, #7f1d1d);
-            animation: pulse 2s infinite;
+            background: #ff9800;
         }}
         
         .section-title.priority {{
-            background: linear-gradient(135deg, #ea580c, #c2410c);
+            background: #ffa726;
         }}
         
         .section-title.last-year {{
-            background: linear-gradient(135deg, #0891b2, #0e7490);
-        }}
-        
-        @keyframes pulse {{
-            0%, 100% {{ opacity: 1; }}
-            50% {{ opacity: 0.8; }}
-        }}
-        
-        .group-section {{
-            padding: 30px;
-            border-bottom: 1px solid rgba(71, 85, 105, 0.3);
-        }}
-        
-        .group-title {{
-            color: #60a5fa;
-            font-size: 1.4rem;
-            font-weight: bold;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid rgba(96, 165, 250, 0.3);
-        }}
-        
-        .member-list {{
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 15px;
-        }}
-        
-        .member-card {{
-            background: rgba(51, 65, 85, 0.4);
-            padding: 15px;
-            border-radius: 10px;
-            border-left: 4px solid #60a5fa;
-            transition: all 0.3s ease;
-        }}
-        
-        .member-card:hover {{
-            background: rgba(51, 65, 85, 0.6);
-            transform: translateY(-2px);
-        }}
-        
-        .member-name {{
-            font-weight: bold;
-            font-size: 1.1rem;
-            margin-bottom: 5px;
-            color: #f1f5f9;
-        }}
-        
-        .member-role {{
-            color: #94a3b8;
-            font-size: 0.9rem;
-        }}
-        
-        .no-followup {{
-            text-align: center;
-            color: #10b981;
-            font-style: italic;
-            padding: 20px;
+            background: #42a5f5;
         }}
         
         .urgent-note {{
-            background: rgba(220, 38, 38, 0.1);
-            border: 1px solid rgba(220, 38, 38, 0.3);
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 30px;
-            color: #fca5a5;
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 12px;
+            margin: 0;
+            font-size: 0.9rem;
+            color: #e65100;
+        }}
+        
+        .group-section {{
+            border-bottom: 1px solid #e1e8ed;
+        }}
+        
+        .group-title {{
+            background: #f8fafb;
+            padding: 10px 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.95rem;
+        }}
+        
+        .member-list {{
+            padding: 0;
+        }}
+        
+        .member-card {{
+            padding: 10px 20px;
+            border-bottom: 1px solid #f0f3f5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        
+        .member-card:hover {{
+            background: #f8fafb;
+        }}
+        
+        .member-card:last-child {{
+            border-bottom: none;
+        }}
+        
+        .member-name {{
+            font-weight: 500;
+            color: #2c3e50;
+            font-size: 0.95rem;
+        }}
+        
+        .member-info {{
+            font-size: 0.85rem;
+            color: #78909c;
+        }}
+        
+        .no-followup {{
+            padding: 20px;
+            text-align: center;
+            color: #4caf50;
+            font-weight: 500;
+        }}
+        
+        .footer {{
+            padding: 15px 20px;
+            text-align: center;
+            color: #90a4ae;
+            font-size: 0.75rem;
+            border-top: 1px solid #e1e8ed;
+        }}
+        
+        @media print {{
+            body {{
+                background: white;
+                font-size: 10px;
+            }}
+            .container {{
+                box-shadow: none;
+            }}
         }}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Bible Study Follow-up List</h1>
-            <p>Calendar Year Analysis: {last_year} & {current_year}</p>
-            <p>Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
+            <h1>📚 Bible Study Follow-up List</h1>
+            <p>Calendar Years {last_year} & {current_year}</p>
         </div>
-        """
+"""
     
-    # Calculate summary statistics - NOW INCLUDING RECENT MISSED
+    # Calculate summary statistics
     total_recent_missed = sum(len(members) for members in follow_up_recent_missed.values()) if follow_up_recent_missed else 0
     total_this_year = sum(len(members) for members in follow_up_this_year.values()) if follow_up_this_year else 0
     total_last_year = sum(len(members) for members in follow_up_last_year.values()) if follow_up_last_year else 0
@@ -997,21 +1045,21 @@ def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, fo
     # Add summary section
     html_content += f"""
         <div class="summary">
-            <h2>Summary</h2>
+            <h2>📊 Summary</h2>
             <p>Analysis of Bible Study Group members requiring follow-up based on attendance patterns.</p>
             <p><strong>Priority Order:</strong> 1) Missed last 3 meetings (urgent), 2) Has not attended group this year, 3) Did not attend group last year.</p>
             <div class="summary-stats">
                 <div class="stat-card">
                     <div class="stat-number">{total_recent_missed}</div>
-                    <div class="stat-label">URGENT: Missed Last 3 Meetings</div>
+                    <div class="stat-label">Missed Last 3 Meetings</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number">{total_this_year}</div>
-                    <div class="stat-label">Has Not Attended Group in {current_year}</div>
+                    <div class="stat-label">Not Attended in {current_year}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number">{total_last_year}</div>
-                    <div class="stat-label">Did Not Attend Group in {last_year}</div>
+                    <div class="stat-label">Not Attended in {last_year}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number">{len(follow_up_recent_missed) + len(follow_up_this_year) + len(follow_up_last_year)}</div>
@@ -1019,53 +1067,55 @@ def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, fo
                 </div>
             </div>
         </div>
-        """
+"""
     
-    # *** URGENT SECTION - MISSED LAST 3 MEETINGS (FIRST!) ***
+    # URGENT SECTION - MISSED LAST 3 MEETINGS
     html_content += f"""
         <div class="section-title urgent">
             🚨 URGENT: Missed Last 3 Meetings ({current_year})
         </div>
-        """
+"""
     
     if follow_up_recent_missed:
         html_content += """
         <div class="urgent-note">
             <strong>⚠️ IMMEDIATE FOLLOW-UP REQUIRED:</strong> These members have missed their group's last 3 meetings this calendar year and need urgent pastoral contact.
         </div>
-        """
+"""
         
         for group_name, members in follow_up_recent_missed.items():
             html_content += f"""
         <div class="group-section">
             <div class="group-title">
-                🚨 {group_name} ({len(members)} people)
+                {group_name} ({len(members)} people)
             </div>
             <div class="member-list">
-            """
+"""
             
             for member in members:
-                role_display = f" ({member['role']})" if member['role'] else ""
+                role_display = f" • {member['role']}" if member.get('role') else ""
+                last_attended = member.get('last_attended', 'Unknown')
+                
                 html_content += f"""
                 <div class="member-card">
-                    <div class="member-name">🚨 {member['name']}</div>
-                    <div class="member-role">Member ID: {member['id']}{role_display} - MISSED LAST 3 MEETINGS</div>
+                    <div class="member-name">{member['name']}{role_display}</div>
+                    <div class="member-info">Last attended: {last_attended}</div>
                 </div>
-                """
+"""
             
             html_content += """
             </div>
         </div>
-        """
+"""
     else:
         html_content += f'<div class="no-followup">✅ Excellent! No members missed the last 3 meetings in {current_year}!</div>'
     
-    # Add This Calendar Year section
+    # THIS CALENDAR YEAR SECTION
     html_content += f"""
         <div class="section-title priority">
-            PRIORITY: HAS NOT ATTENDED GROUP IN {current_year}
+            PRIORITY: Has Not Attended Group in {current_year}
         </div>
-        """
+"""
     
     if follow_up_this_year:
         for group_name, members in follow_up_this_year.items():
@@ -1075,30 +1125,32 @@ def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, fo
                 {group_name} ({len(members)} people)
             </div>
             <div class="member-list">
-            """
+"""
             
             for member in members:
-                role_display = f" ({member['role']})" if member['role'] else ""
+                role_display = f" • {member['role']}" if member.get('role') else ""
+                last_attended = member.get('last_attended', f'Not in {current_year}')
+                
                 html_content += f"""
                 <div class="member-card">
-                    <div class="member-name">{member['name']}</div>
-                    <div class="member-role">Member ID: {member['id']}{role_display}</div>
+                    <div class="member-name">{member['name']}{role_display}</div>
+                    <div class="member-info">Last attended: {last_attended}</div>
                 </div>
-                """
+"""
             
             html_content += """
             </div>
         </div>
-        """
+"""
     else:
-        html_content += f'<div class="no-followup">No members failed to attend group in {current_year}!</div>'
+        html_content += f'<div class="no-followup">✅ All members attended at least once in {current_year}!</div>'
     
-    # Add Last Calendar Year section
+    # LAST CALENDAR YEAR SECTION
     html_content += f"""
         <div class="section-title last-year">
-            SECONDARY: DID NOT ATTEND GROUP IN {last_year}
+            Did Not Attend Group in {last_year}
         </div>
-        """
+"""
     
     if follow_up_last_year:
         for group_name, members in follow_up_last_year.items():
@@ -1108,69 +1160,72 @@ def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, fo
                 {group_name} ({len(members)} people)
             </div>
             <div class="member-list">
-            """
+"""
             
             for member in members:
-                role_display = f" ({member['role']})" if member['role'] else ""
+                role_display = f" • {member['role']}" if member.get('role') else ""
+                last_attended = member.get('last_attended', f'Not in {last_year}')
+                
                 html_content += f"""
                 <div class="member-card">
-                    <div class="member-name">{member['name']}</div>
-                    <div class="member-role">Member ID: {member['id']}{role_display}</div>
+                    <div class="member-name">{member['name']}{role_display}</div>
+                    <div class="member-info">Last attended: {last_attended}</div>
                 </div>
-                """
+"""
             
             html_content += """
             </div>
         </div>
-        """
+"""
     else:
-        html_content += f'<div class="no-followup">No members failed to attend group in {last_year}!</div>'
+        html_content += f'<div class="no-followup">✅ All members attended at least once in {last_year}!</div>'
     
-    html_content += """
+    html_content += f"""
+        <div class="footer">
+            <p>Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
+        </div>
     </div>
 </body>
 </html>
 """
     
-    # Save the HTML file with detailed path information
+    # Save to outputs directory
     import os
-    filename = f"bible_study_followup_members_calendar_years_{current_year}_{last_year}.html"
-    current_dir = os.getcwd()
-    full_path = os.path.join(current_dir, filename)
+    outputs_dir = 'outputs'
+    os.makedirs(outputs_dir, exist_ok=True)
     
-    # Remove existing file if it exists to ensure we can overwrite
-    if os.path.exists(full_path):
-        try:
-            os.remove(full_path)
-            print(f"   Removed existing file: {filename}")
-        except Exception as e:
-            print(f"   Warning: Could not remove existing file: {e}")
+    filename = os.path.join(outputs_dir, 'bible_study_followup_members.html')
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(html_content)
     
+    print(f"✅ Follow-up member list saved: {filename}")
+    
+    # Try to generate PNG with increased height
+    print("🖼️ Generating PNG image...")
     try:
-        with open(filename, 'w', encoding='utf-8', newline='') as f:
-            f.write(html_content)
-        print("Member list saved successfully!")
-        print(f"   Directory: {current_dir}")
-        print(f"   Filename: {filename}")
-        print(f"   Full path: {full_path}")
-        print(f"   File exists: {os.path.exists(full_path)}")
-        if os.path.exists(full_path):
-            file_size = os.path.getsize(full_path)
-            print(f"   File size: {file_size} bytes")
-            
-        # Automatically open the member follow-up list in default browser
-        try:
-            webbrowser.open(f"file://{full_path}")
-            print(f"   ✅ Opened member follow-up list in browser automatically!")
-        except Exception as e:
-            print(f"   ⚠️ Could not auto-open browser: {e}")
-            
-        return filename
+        from html2image import Html2Image
+        hti = Html2Image()
+        
+        png_filename = 'bible_study_followup_members.png'
+        hti.screenshot(
+            html_file=filename,
+            save_as=png_filename,
+            size=(1200, 2400)  # Increased height from 1600 to 2400
+        )
+        
+        # Move to outputs directory
+        if os.path.exists(png_filename):
+            import shutil
+            png_filepath = os.path.join(outputs_dir, png_filename)
+            shutil.move(png_filepath, png_filepath) if os.path.exists(png_filepath) else shutil.move(png_filename, png_filepath)
+            print(f"✅ PNG image saved: {png_filepath}")
+    except ImportError:
+        print(f"⚠️ PNG export skipped: html2image not installed")
     except Exception as e:
-        print(f"Failed to create member list: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
+        print(f"⚠️ PNG export failed: {e}")
+    
+    return filename
+
 
 def cleanup_old_files():
     """Remove any existing Bible study report files to ensure fresh generation"""
@@ -1197,6 +1252,7 @@ def cleanup_old_files():
                 print(f"   Warning: Could not remove {file}: {e}")
     else:
         print("No existing report files to clean up")
+
 
 def create_bible_study_attendance_analysis():
     """Main function to create the attendance analysis"""
@@ -1393,9 +1449,6 @@ def create_bible_study_attendance_analysis():
         if group_followup_last_year:
             follow_up_last_year[api_group_name] = group_followup_last_year
 
-    print("\nStep 7: Creating visualizations...")
-    create_charts(follow_up_this_year, follow_up_last_year, current_year, last_year)
-
     # ---- Step 7b UPDATED: create the 3-across PNG grid for the per-group progressive charts ----
     print("\nStep 7b: Creating progressive monthly attendance grid (PNG)...")
     create_progressive_attendance_charts(current_monthly_data, last_year_monthly_data, current_year, last_year)
@@ -1405,6 +1458,7 @@ def create_bible_study_attendance_analysis():
     create_followup_member_list(follow_up_recent_missed, follow_up_this_year, follow_up_last_year, current_year, last_year)
 
     return follow_up_recent_missed, follow_up_this_year, follow_up_last_year
+
 
 if __name__ == "__main__":
     print("=" * 80)
