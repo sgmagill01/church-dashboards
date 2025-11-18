@@ -1573,7 +1573,7 @@ def is_youth_age(person):
 
 def create_dashboard(metrics):
     """
-    Build the NextGen Dashboard.
+    Build the NextGen dashboard.
 
     Changes in this version:
       • Added strategic plan target lines to all relevant percentage charts
@@ -1998,6 +1998,10 @@ def create_dashboard(metrics):
                 linecolor=colors['grid'], rangemode='tozero',
                 row=row, col=col
             )
+
+    # Format x-axis for weekly attendance charts to show only months (no year)
+    fig.update_xaxes(tickformat='%b', row=2, col=2)  # Kids Club
+    fig.update_xaxes(tickformat='%b', row=2, col=3)  # Youth Group
 
     # Save to outputs folder with fixed names (will overwrite on re-run)
     # Create outputs folder if it doesn't exist
