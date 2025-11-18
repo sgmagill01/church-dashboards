@@ -1,6 +1,7 @@
 import subprocess
 import sys
 
+
 # Auto-install required packages
 def install_packages():
     packages = ['beautifulsoup4', 'pandas', 'requests']
@@ -13,6 +14,7 @@ def install_packages():
         except ImportError:
             print(f"Installing {package}...")
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
+
 
 # Install packages first
 install_packages()
@@ -45,12 +47,13 @@ except AttributeError:
     sys.exit(1)
 BASE_URL = "https://api.elvanto.com/v1"
 
+
 def make_request(endpoint, params=None):
     """Make API request to Elvanto"""
     try:
-        response = requests.post(f"{BASE_URL}/{endpoint}.json", 
-                               auth=(API_KEY, ''), 
-                               json=params or {}, 
+        response = requests.post(f"{BASE_URL}/{endpoint}.json",
+                               auth=(API_KEY, ''),
+                               json=params or {},
                                timeout=30)
         if response.status_code == 200:
             data = response.json()
@@ -65,6 +68,7 @@ def make_request(endpoint, params=None):
     except Exception as e:
         print(f"Network Error: {e}")
         return None
+
 
 def is_person_excluded(person):
     """
@@ -87,6 +91,7 @@ def is_person_excluded(person):
 
     return False, None
 
+
 def fetch_all_people():
     """
     Fetch ALL people first, then filter out deceased - using Code CD approach
@@ -101,7 +106,7 @@ def fetch_all_people():
     while True:
         print(f"Page {page}...", end=" ")
         response = make_request('people/getAll', {
-            'page': page, 
+            'page': page,
             'page_size': 1000,
             'fields': ['demographics', 'departments']  # API will automatically include deceased, archived, status fields
         })
@@ -143,6 +148,7 @@ def fetch_all_people():
 
     return all_people
 
+
 def categorize_person(category):
     """From Code CD - categorize person by their category"""
     if not category:
@@ -157,6 +163,7 @@ def categorize_person(category):
         return 'other_member'
     else:
         return 'people'
+
 
 def fetch_congregation_members():
     """
@@ -241,6 +248,7 @@ def fetch_congregation_members():
 
     return congregation_members
 
+
 def find_current_attendance_report():
     """Find the current year individual attendance report group"""
     print("\n📋 Searching for current attendance report...")
@@ -263,6 +271,7 @@ def find_current_attendance_report():
 
     print("❌ Current year attendance report group not found")
     return None
+
 
 def extract_attendance_data(group):
     """Extract attendance data from the report group"""
@@ -318,6 +327,7 @@ def extract_attendance_data(group):
     except Exception as e:
         print(f"❌ Error extracting attendance data: {e}")
         return None, None
+
 
 def parse_recent_service_columns(headers, num_sundays=4):
     """Parse and identify all services from the most recent N Sundays"""
@@ -442,6 +452,7 @@ def parse_recent_service_columns(headers, num_sundays=4):
 
     return recent_services
 
+
 def parse_all_service_columns_for_newcomers(headers):
     """Parse ALL service columns to identify newcomers from the entire attendance report"""
     print(f"\n📅 Parsing ALL services for newcomer analysis...")
@@ -530,6 +541,7 @@ def parse_all_service_columns_for_newcomers(headers):
 
     return all_services
 
+
 def identify_newcomers(members, attendance_df, all_services):
     """Identify newcomers who attended for the first time in the last 6 weeks"""
     print(f"\n🆕 Identifying newcomers who attended for the first time in the last 6 weeks...")
@@ -608,6 +620,7 @@ def identify_newcomers(members, attendance_df, all_services):
             print(f"   • {newcomer['name']} - First attended: {first_date} ({newcomer['days_ago']} days ago) - {newcomer['total_attendances']} total attendances")
 
     return newcomers
+
 
 def identify_missing_members(members, attendance_df, recent_services):
     """Identify members who haven't attended any recent services"""
@@ -748,9 +761,16 @@ def identify_missing_members(members, attendance_df, recent_services):
 
     return missing_members
 
+
 def generate_pastoral_care_report(missing_members, recent_services, newcomers=None, num_sundays=4):
     """Generate HTML report for pastoral care follow-up"""
     print("\n📄 Generating pastoral care report...")
+    
+    import os
+    
+    # Create outputs directory if it doesn't exist
+    outputs_dir = 'outputs'
+    os.makedirs(outputs_dir, exist_ok=True)
 
     # Calculate how many unique Sundays are represented
     unique_sundays = set()
@@ -788,8 +808,6 @@ def generate_pastoral_care_report(missing_members, recent_services, newcomers=No
 
         services_html += "</ul>"
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
     html_content = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -799,45 +817,50 @@ def generate_pastoral_care_report(missing_members, recent_services, newcomers=No
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.4;
-            color: #333;
+            color: #2c3e50;
             max-width: 1000px;
             margin: 0 auto;
             padding: 15px;
-            background: #f8f9fa;
+            background: #f5f7fa;
             font-size: 12px;
         }}
         .header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
             color: white;
             padding: 15px;
-            border-radius: 6px;
+            border-radius: 8px;
             text-align: center;
             margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }}
         .header h1 {{
             margin: 0;
             font-size: 18px;
+            font-weight: 600;
         }}
         .header p {{
             margin: 3px 0 0 0;
             font-size: 11px;
-            opacity: 0.9;
+            opacity: 0.95;
         }}
         .summary {{
             background: white;
             padding: 12px;
-            border-radius: 6px;
+            border-radius: 8px;
             margin-bottom: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border-left: 4px solid #5e72e4;
         }}
         .summary h2 {{
-            color: #2d3748;
+            color: #2c3e50;
             margin: 0 0 8px 0;
             font-size: 14px;
+            font-weight: 600;
         }}
         .summary p {{
             margin: 2px 0;
             font-size: 10px;
+            color: #546e7a;
         }}
         .summary ul {{
             margin: 3px 0;
@@ -847,50 +870,54 @@ def generate_pastoral_care_report(missing_members, recent_services, newcomers=No
             font-size: 10px;
             margin: 0;
             line-height: 1.2;
+            color: #546e7a;
         }}
         .alert {{
-            background: #fed7d7;
-            border: 1px solid #f56565;
-            color: #c53030;
+            background: #fff3e0;
+            border: 1px solid #ffb74d;
+            border-left: 4px solid #ff9800;
+            color: #e65100;
             padding: 8px;
-            border-radius: 4px;
+            border-radius: 6px;
             margin: 8px 0;
             font-size: 11px;
         }}
         .success {{
-            background: #c6f6d5;
-            border: 1px solid #48bb78;
-            color: #2f855a;
+            background: #e8f5e9;
+            border: 1px solid #81c784;
+            border-left: 4px solid #4caf50;
+            color: #2e7d32;
             padding: 8px;
-            border-radius: 4px;
+            border-radius: 6px;
             margin: 8px 0;
             font-size: 11px;
         }}
         .newcomer-alert {{
-            background: #dbeafe;
-            border: 1px solid #3b82f6;
-            color: #1e40af;
+            background: #e3f2fd;
+            border: 1px solid #64b5f6;
+            border-left: 4px solid #2196f3;
+            color: #1565c0;
             padding: 8px;
-            border-radius: 4px;
+            border-radius: 6px;
             margin: 8px 0;
             font-size: 11px;
         }}
         .category-section {{
             background: white;
             margin-bottom: 10px;
-            border-radius: 6px;
+            border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         }}
         .category-header {{
-            background: #4a5568;
+            background: #5e72e4;
             color: white;
             padding: 6px 12px;
             font-size: 13px;
             font-weight: 600;
         }}
         .newcomer-header {{
-            background: #3b82f6;
+            background: #2196f3;
             color: white;
             padding: 6px 12px;
             font-size: 13px;
@@ -901,35 +928,35 @@ def generate_pastoral_care_report(missing_members, recent_services, newcomers=No
             border-collapse: collapse;
         }}
         .member-table th {{
-            background: #edf2f7;
+            background: #f5f7fa;
             padding: 6px 10px;
             text-align: left;
             font-weight: 600;
-            color: #2d3748;
-            border-bottom: 1px solid #e2e8f0;
+            color: #2c3e50;
+            border-bottom: 2px solid #e1e8ed;
             font-size: 11px;
         }}
         .member-table td {{
             padding: 6px 10px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #f0f3f5;
             font-size: 11px;
         }}
         .member-table tr:hover {{
-            background: #f7fafc;
+            background: #f8fafb;
         }}
         .contact-info {{
             font-size: 10px;
-            color: #718096;
+            color: #78909c;
         }}
         .newcomer-info {{
             font-size: 10px;
-            color: #1e40af;
+            color: #1976d2;
         }}
         .footer {{
             text-align: center;
             margin-top: 15px;
             padding: 8px;
-            color: #718096;
+            color: #90a4ae;
             font-size: 8px;
         }}
         @media print {{
@@ -939,7 +966,7 @@ def generate_pastoral_care_report(missing_members, recent_services, newcomers=No
                 padding: 8px;
             }}
             .header {{ 
-                background: #667eea !important; 
+                background: #5e72e4 !important; 
                 padding: 10px;
             }}
             .header h1 {{ font-size: 16px; }}
@@ -957,7 +984,7 @@ def generate_pastoral_care_report(missing_members, recent_services, newcomers=No
 <body>
     <div class="header">
         <h1>🏛️ St George's Magill - Pastoral Care Report</h1>
-        <p>Members Needing Follow-up + Recent Newcomers - {datetime.now().strftime('%d %b %Y')} (Code CD Deceased Filtering)</p>
+        <p>Members Needing Follow-up + Recent Newcomers - {datetime.now().strftime('%d %b %Y')}</p>
     </div>
 
     <div class="summary">
@@ -1031,7 +1058,7 @@ def generate_pastoral_care_report(missing_members, recent_services, newcomers=No
     else:
         html_content += f"""
     <div class="alert">
-        <strong>🚨 Action Required:</strong> {len(missing_members)} confirmed living members haven't attended any of the recent Sunday services.
+        <strong>🚨 Action Required:</strong> {len(missing_members)} members haven't attended any of the recent Sunday services.
     </div>
 """
 
@@ -1076,17 +1103,49 @@ def generate_pastoral_care_report(missing_members, recent_services, newcomers=No
 
     html_content += f"""
     <div class="footer">
-        <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')} • Using Code CD deceased filtering approach • Newcomers: first attendance in last 6 weeks • For pastoral care use only</p>
+        <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')} • Newcomers: first attendance in last 6 weeks • For pastoral care use only</p>
     </div>
 </body>
 </html>"""
 
-    filename = f"pastoral_care_report_cd_filtering_{timestamp}.html"
-    with open(filename, 'w', encoding='utf-8') as f:
+    # Use consistent filenames (no timestamp) in outputs directory
+    html_filename = os.path.join(outputs_dir, 'pastoral_care_report.html')
+    png_filename = os.path.join(outputs_dir, 'pastoral_care_report.png')
+    
+    # Save HTML file
+    with open(html_filename, 'w', encoding='utf-8') as f:
         f.write(html_content)
+    print(f"✅ HTML report saved: {html_filename}")
 
-    print(f"✅ Report saved: {filename}")
-    return filename
+    # Generate PNG image
+    print("🖼️ Generating PNG image...")
+    try:
+        from html2image import Html2Image
+        hti = Html2Image()
+
+        # Generate PNG from HTML file
+        hti.screenshot(
+            html_file=html_filename,
+            save_as='pastoral_care_report.png',
+            size=(1200, 1600)  # Width x Height
+        )
+        
+        # html2image saves in current directory, so move it to outputs
+        if os.path.exists('pastoral_care_report.png'):
+            import shutil
+            shutil.move('pastoral_care_report.png', png_filename)
+            print(f"✅ PNG image saved: {png_filename}")
+        else:
+            print(f"⚠️ PNG file was not created (html2image may not be installed)")
+            
+    except ImportError:
+        print(f"⚠️ PNG export skipped: html2image not installed")
+        print(f"   To enable PNG export, install with: pip install html2image")
+    except Exception as e:
+        print(f"⚠️ PNG export failed: {e}")
+
+    return html_filename
+
 
 def main():
     """Main execution function"""
@@ -1181,6 +1240,7 @@ def main():
         print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     main()
