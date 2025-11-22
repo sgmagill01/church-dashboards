@@ -1,6 +1,7 @@
 import subprocess
 import sys
 
+
 # Auto-install required packages
 def install_packages():
     packages = ['beautifulsoup4', 'pandas', 'plotly', 'requests', 'kaleido']
@@ -15,6 +16,7 @@ def install_packages():
         except ImportError:
             print(f"Installing {package}...")
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
+
 
 # Install packages first
 install_packages()
@@ -52,12 +54,13 @@ except AttributeError:
 
 BASE_URL = "https://api.elvanto.com/v1"
 
+
 def make_request(endpoint, params=None):
     """Make API request to Elvanto"""
     try:
-        response = requests.post(f"{BASE_URL}/{endpoint}.json", 
-                               auth=(API_KEY, ''), 
-                               json=params or {}, 
+        response = requests.post(f"{BASE_URL}/{endpoint}.json",
+                               auth=(API_KEY, ''),
+                               json=params or {},
                                timeout=30)
         if response.status_code == 200:
             data = response.json()
@@ -72,6 +75,7 @@ def make_request(endpoint, params=None):
     except Exception as e:
         print(f"Network Error: {e}")
         return None
+
 
 def find_service_attendance_reports():
     """Find both current year and last year service attendance reports"""
@@ -105,6 +109,7 @@ def find_service_attendance_reports():
 
     return current_year_group, last_year_group
 
+
 def find_report_group(group_name_keywords):
     """Find a report group by keywords in the name"""
     print(f"\n📋 Searching for report group with keywords: {group_name_keywords}...")
@@ -126,6 +131,7 @@ def find_report_group(group_name_keywords):
 
     print(f"❌ No group found with keywords: {group_name_keywords}")
     return None
+
 
 def extract_service_attendance_data(group, year_label="Service Attendance"):
     """Extract service attendance data (including prayer meetings)"""
@@ -180,6 +186,7 @@ def extract_service_attendance_data(group, year_label="Service Attendance"):
     except Exception as e:
         print(f"❌ Error extracting service attendance data: {e}")
         return None, None
+
 
 def parse_prayer_meeting_columns(headers, target_year, year_label):
     """Parse service columns and extract Prayer Meeting services, separating weekly from quarterly"""
@@ -275,6 +282,7 @@ def parse_prayer_meeting_columns(headers, target_year, year_label):
 
     return weekly_prayer_services, quarterly_prayer_services
 
+
 def calculate_prayer_meeting_attendance(df, prayer_services):
     """Calculate attendance for prayer meetings"""
     print(f"\n📊 Calculating Prayer Meeting attendance...")
@@ -301,6 +309,7 @@ def calculate_prayer_meeting_attendance(df, prayer_services):
     
     print(f"✅ Calculated attendance for {len(attendance_data)} prayer meetings")
     return attendance_data
+
 
 def extract_newcomers_lunch_data_from_report(group):
     """Extract newcomers lunch data from shared report"""
@@ -367,14 +376,14 @@ def extract_newcomers_lunch_data_from_report(group):
                         try:
                             # Handle various date formats
                             date_formats = [
-                                '%d %B, %Y',      # "8 September, 2024"
-                                '%d %b, %Y',      # "8 Sep, 2024"
-                                '%d/%m/%Y',       # "8/9/2024"
-                                '%Y-%m-%d',       # "2024-09-08"
-                                '%d %B %Y',       # "8 September 2024"
-                                '%d %b %Y',       # "8 Sep 2024"
-                                '%B %d, %Y',      # "September 8, 2024"
-                                '%b %d, %Y'       # "Sep 8, 2024"
+                                '%d %B, %Y',  # "8 September, 2024"
+                                '%d %b, %Y',  # "8 Sep, 2024"
+                                '%d/%m/%Y',  # "8/9/2024"
+                                '%Y-%m-%d',  # "2024-09-08"
+                                '%d %B %Y',  # "8 September 2024"
+                                '%d %b %Y',  # "8 Sep 2024"
+                                '%B %d, %Y',  # "September 8, 2024"
+                                '%b %d, %Y'  # "Sep 8, 2024"
                             ]
 
                             lunch_date = None
@@ -418,6 +427,7 @@ def extract_newcomers_lunch_data_from_report(group):
         print(f"❌ Error extracting Newcomers Lunch data: {e}")
         return []
 
+
 def calculate_rolling_average(data, window=6):
     """Calculate rolling average with specified window size (NOW USING 6 WEEKS!)"""
     if len(data) < window:
@@ -427,13 +437,14 @@ def calculate_rolling_average(data, window=6):
     for i in range(len(data)):
         if i < window - 1:
             # For early points, use expanding average
-            avg = sum(data[:i+1]) / (i+1)
+            avg = sum(data[:i + 1]) / (i + 1)
         else:
             # Use rolling window
-            avg = sum(data[i-window+1:i+1]) / window
+            avg = sum(data[i - window + 1:i + 1]) / window
         rolling_data.append(avg)
 
     return rolling_data
+
 
 def calculate_cumulative_lunch_attendance(lunch_data, current_year):
     """Calculate cumulative attendance for newcomers lunch throughout the year"""
@@ -459,6 +470,7 @@ def calculate_cumulative_lunch_attendance(lunch_data, current_year):
     
     return cumulative_data
 
+
 def calculate_prorated_cumulative_target(annual_target, baseline):
     """Calculate prorated cumulative target for newcomers lunch"""
     now = datetime.now()
@@ -476,33 +488,41 @@ def calculate_prorated_cumulative_target(annual_target, baseline):
     
     return cumulative_target, year_progress
 
-def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data, current_weekly_services, current_quarterly_services, last_year_weekly_services, last_year_quarterly_services, current_year, last_year):
-    """Create a stunning Prayer Meeting dashboard with separate zoom and quarterly charts"""
-    print("\n✨ Creating STUNNING Prayer Meeting Dashboard with separate Zoom & Quarterly charts...")
 
-    # Enhanced modern color palette
+def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data, current_weekly_services, current_quarterly_services, last_year_weekly_services, last_year_quarterly_services, current_year, last_year):
+    """Create a Prayer Meeting dashboard with separate zoom and quarterly charts"""
+    print("\n✨ Creating Prayer Meeting Dashboard with separate Zoom & Quarterly charts...")
+
+    # Import strategic targets
+    from config import STRATEGIC_TARGETS
+    
+    # Light modern color palette (matching nextgen_dashboard)
     colors = {
-        'current_year': '#6366f1',     # Indigo
-        'current_smooth': '#8b5cf6',   # Purple
-        'last_year': '#ef4444',        # Red
-        'last_smooth': '#f97316',      # Orange
-        'target': '#10b981',           # Emerald
-        'quarterly_current': '#06b6d4', # Cyan
-        'quarterly_last': '#f59e0b',    # Amber
-        'background': '#0f172a',       # Dark blue
-        'grid': 'rgba(148, 163, 184, 0.1)',
-        'text': '#f1f5f9'
+        'current_year': '#3b82f6',  # Blue
+        'current_smooth': '#6366f1',  # Indigo
+        'last_year': '#f97316',  # Orange
+        'last_smooth': '#fb923c',  # Light orange
+        'target_colors': ['#10b981', '#14b8a6', '#06b6d4'],  # Emerald, Teal, Cyan for targets
+        'quarterly_current': '#3b82f6',  # Blue
+        'quarterly_last': '#f59e0b',  # Amber
+        'background': '#ffffff',  # White
+        'plot_bg': '#f8fafc',  # Very light gray
+        'grid': 'rgba(148, 163, 184, 0.2)',
+        'text': '#1e293b'
     }
+    
+    # Dash patterns for different targets
+    dash_patterns = ['dash', 'dot', 'dashdot']
 
     # Create subplots: top for zoom meetings, bottom for quarterly
     fig = make_subplots(
         rows=2, cols=1,
         subplot_titles=[
-            "<b style='color:#f1f5f9'>🔗 Weekly Zoom Prayer Meetings</b>",
-            "<b style='color:#f1f5f9'>📅 Quarterly Prayer Meetings</b>"
+            "<b style='color:#1e293b'>🔗 Weekly Zoom Prayer Meetings</b>",
+            "<b style='color:#1e293b'>📅 Quarterly Prayer Meetings</b>"
         ],
-        vertical_spacing=0.12,
-        row_heights=[0.65, 0.35]
+        vertical_spacing=0.10,
+        row_heights=[0.60, 0.40]
     )
 
     # Step 1: Create filtered zoom prayer data (exclude quarterly meeting weeks)
@@ -545,14 +565,27 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         last_year_zoom_data = last_year_prayer_data
         print(f"   🔗 Last year zoom meetings: {len(last_year_zoom_data)} (no quarterly data to filter)")
 
-    # Calculate 10% growth target from last year's zoom average
-    zoom_target = None
-    if last_year_zoom_data:
-        last_year_values = [record['attendance'] for record in last_year_zoom_data]
-        last_year_smooth = calculate_rolling_average(last_year_values, window=6)
-        last_year_avg = sum(last_year_smooth) / len(last_year_smooth)
-        zoom_target = last_year_avg * 1.10  # 10% growth target
-        print(f"🎯 Zoom Prayer Target: {zoom_target:.1f} (10% growth from {last_year} 6-week avg: {last_year_avg:.1f})")
+    # Get strategic targets for zoom meetings - DYNAMICALLY
+    def get_relevant_targets(target_config, current_year):
+        """Extract all relevant target years and values dynamically"""
+        targets = []
+        
+        # Include baseline if it's current year or future
+        baseline_year = target_config.get('baseline_year')
+        baseline_value = target_config.get('baseline_value')
+        if baseline_year and baseline_value and baseline_year >= current_year:
+            targets.append({'year': baseline_year, 'value': baseline_value})
+        
+        # Include all future targets
+        for year, value in target_config.get('targets', {}).items():
+            if year >= current_year:
+                targets.append({'year': year, 'value': value})
+        
+        # Sort by year
+        targets.sort(key=lambda x: x['year'])
+        return targets
+
+    zoom_targets = get_relevant_targets(STRATEGIC_TARGETS['prayer_zoom'], current_year)
 
     # TOP CHART: Add last year zoom data with 6-week moving average
     if last_year_zoom_data:
@@ -588,7 +621,7 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
                 y=last_year_rolling,
                 mode='lines',
                 name=f'{last_year} Trend',
-                line=dict(color=colors['last_smooth'], width=5, shape='spline'),
+                line=dict(color=colors['last_smooth'], width=4, shape='spline'),
                 hovertemplate=f'<b>%{{x|%a %d %b}} {last_year}</b><br>6-Week Average: %{{y:.1f}}<br><extra></extra>',
                 showlegend=True
             ),
@@ -625,26 +658,35 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
                 y=current_year_rolling,
                 mode='lines',
                 name=f'{current_year} Trend',
-                line=dict(color=colors['current_smooth'], width=5, shape='spline'),
+                line=dict(color=colors['current_smooth'], width=4, shape='spline'),
                 hovertemplate=f'<b>%{{x|%a %d %b}} {current_year}</b><br>6-Week Average: %{{y:.1f}}<br><extra></extra>',
                 showlegend=True
             ),
             row=1, col=1
         )
         
-        # Add 10% growth target line for zoom meetings
-        if zoom_target:
+        # Add strategic target lines for zoom meetings - DYNAMICALLY
+        # Position labels to avoid overlap
+        positions = ['top left', 'top right', 'bottom right']
+        
+        for idx, target in enumerate(zoom_targets):
+            target_year = target['year']
+            target_value = target['value']
+            color = colors['target_colors'][idx % len(colors['target_colors'])]
+            dash = dash_patterns[idx % len(dash_patterns)]
+            position = positions[idx % len(positions)]
+            
             fig.add_hline(
-                y=zoom_target,
-                line=dict(color=colors['target'], width=3, dash='dash'),
-                annotation_text=f"🎯 Zoom Target: {zoom_target:.1f}",
-                annotation_position="top right",
+                y=target_value,
+                line=dict(color=color, width=2, dash=dash),
+                annotation_text=f"Target {target_year}: {target_value}",
+                annotation_position=position,
                 annotation=dict(
-                    font=dict(size=12, color=colors['target'], family="Inter"),
-                    bgcolor="rgba(16, 185, 129, 0.1)",
-                    bordercolor=colors['target'],
-                    borderwidth=2,
-                    borderpad=6
+                    font=dict(size=10, color=color),
+                    bgcolor=f"rgba{tuple(list(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)) + [0.1])}",
+                    bordercolor=color,
+                    borderwidth=1.5,
+                    borderpad=4
                 ),
                 row=1, col=1
             )
@@ -671,7 +713,6 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
                 
                 if matching_records:
                     # If multiple records for same date, pick the one with highest attendance
-                    # (quarterly meeting vs cancelled weekly meeting)
                     best_record = max(matching_records, key=lambda x: x['attendance'])
                     quarter = f"Q{(service['date'].month - 1) // 3 + 1}"
                     quarterly_data[quarter] = best_record['attendance']
@@ -686,7 +727,7 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         
         return quarterly_data
 
-    # Get quarterly data for both years (only with actual attendance)
+    # Get quarterly data for both years
     current_quarterly_data = create_quarterly_data_from_attendance(
         current_prayer_data, current_quarterly_services, current_year
     )
@@ -696,7 +737,10 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
 
     quarters = ['Q1', 'Q2', 'Q3', 'Q4']
     
-    # BOTTOM CHART: Add quarterly bars (properly grouped by quarter)
+    # Get strategic targets for quarterly meetings - DYNAMICALLY
+    quarterly_targets = get_relevant_targets(STRATEGIC_TARGETS['prayer_quarterly'], current_year)
+    
+    # BOTTOM CHART: Add quarterly bars
     fig.add_trace(
         go.Bar(
             x=quarters,
@@ -720,45 +764,73 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         ),
         row=2, col=1
     )
+    
+    # Add strategic target lines for quarterly meetings - DYNAMICALLY
+    # Position labels horizontally to avoid overlap
+    x_positions = [0.15, 0.5, 0.85]
+    
+    for idx, target in enumerate(quarterly_targets):
+        target_year = target['year']
+        target_value = target['value']
+        color = colors['target_colors'][idx % len(colors['target_colors'])]
+        dash = dash_patterns[idx % len(dash_patterns)]
+        x_pos = x_positions[idx % len(x_positions)]
+        
+        fig.add_hline(
+            y=target_value,
+            line=dict(color=color, width=2, dash=dash),
+            annotation_text=f"Target {target_year}: {target_value}",
+            annotation=dict(
+                x=x_pos,
+                xref="paper",
+                font=dict(size=10, color=color),
+                bgcolor=f"rgba{tuple(list(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)) + [0.1])}",
+                bordercolor=color,
+                borderwidth=1.5,
+                borderpad=4,
+                xanchor='center' if x_pos == 0.5 else ('left' if x_pos < 0.5 else 'right')
+            ),
+            row=2, col=1
+        )
 
-    # Stunning layout with dark theme
+    # Light styling layout
     fig.update_layout(
         title=dict(
-            text=f"<b style='font-size:26px; color:#f1f5f9'>🙏 Prayer Meeting Analysis Dashboard</b><br><span style='font-size:14px; color:#94a3b8'>Weekly Zoom Meetings vs Quarterly In-Person Gatherings • {last_year} vs {current_year}</span>",
+            text=f"<b style='font-size:24px; color:#1e293b'>🙏 Prayer Meeting Analysis Dashboard</b><br><span style='font-size:13px; color:#64748b'>Weekly Zoom Meetings vs Quarterly In-Person Gatherings • {last_year} vs {current_year}</span>",
             x=0.5,
-            y=0.97,
-            font=dict(family="Inter, system-ui, sans-serif")
+            y=0.98,
+            font=dict(family="Arial, sans-serif")
         ),
-        plot_bgcolor=colors['background'],
+        plot_bgcolor=colors['plot_bg'],
         paper_bgcolor=colors['background'],
-        font=dict(family="Inter, system-ui, sans-serif", size=12, color=colors['text']),
-        height=1000,
+        font=dict(family="Arial, sans-serif", size=11, color=colors['text']),
+        height=1100,
         width=1400,
         showlegend=True,
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=-0.12,
+            y=-0.10,
             xanchor="center",
             x=0.5,
-            font=dict(size=12, color=colors['text']),
-            bgcolor="rgba(15, 23, 42, 0.8)",
+            font=dict(size=11, color=colors['text']),
+            bgcolor="rgba(248, 250, 252, 0.9)",
             bordercolor="rgba(148, 163, 184, 0.3)",
             borderwidth=1
         ),
-        margin=dict(l=80, r=80, t=120, b=100),
+        margin=dict(l=80, r=80, t=110, b=90),
         hovermode='x unified',
-        barmode='group'  # Enable grouped bars for the quarterly chart
+        barmode='group'
     )
 
-    # Beautiful axes for top chart (zoom meetings)
+    # Axes styling for top chart (zoom meetings)
     fig.update_xaxes(
         range=[datetime(current_year, 1, 1), datetime(current_year, 12, 31)],
         showgrid=True,
         gridwidth=1,
         gridcolor=colors['grid'],
-        tickfont=dict(size=11, color=colors['text']),
-        title=dict(text="<b>Calendar Year</b>", font=dict(size=12, color=colors['text'])),
+        tickfont=dict(size=10, color=colors['text']),
+        title=dict(text="<b>Calendar Year</b>", font=dict(size=11, color=colors['text'])),
         linecolor="rgba(148, 163, 184, 0.3)",
         mirror=True,
         tickformat='%b',
@@ -770,20 +842,20 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         showgrid=True,
         gridwidth=1,
         gridcolor=colors['grid'],
-        tickfont=dict(size=11, color=colors['text']),
-        title=dict(text="<b>Zoom Attendees</b>", font=dict(size=12, color=colors['text'])),
+        tickfont=dict(size=10, color=colors['text']),
+        title=dict(text="<b>Zoom Attendees</b>", font=dict(size=11, color=colors['text'])),
         linecolor="rgba(148, 163, 184, 0.3)",
         mirror=True,
         row=1, col=1
     )
 
-    # Beautiful axes for bottom chart (quarterly meetings)
+    # Axes styling for bottom chart (quarterly meetings)
     fig.update_xaxes(
         showgrid=True,
         gridwidth=1,
         gridcolor=colors['grid'],
-        tickfont=dict(size=11, color=colors['text']),
-        title=dict(text="<b>Quarter</b>", font=dict(size=12, color=colors['text'])),
+        tickfont=dict(size=10, color=colors['text']),
+        title=dict(text="<b>Quarter</b>", font=dict(size=11, color=colors['text'])),
         linecolor="rgba(148, 163, 184, 0.3)",
         mirror=True,
         row=2, col=1
@@ -793,127 +865,211 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         showgrid=True,
         gridwidth=1,
         gridcolor=colors['grid'],
-        tickfont=dict(size=11, color=colors['text']),
-        title=dict(text="<b>Quarterly Attendees</b>", font=dict(size=12, color=colors['text'])),
+        tickfont=dict(size=10, color=colors['text']),
+        title=dict(text="<b>Quarterly Attendees</b>", font=dict(size=11, color=colors['text'])),
         linecolor="rgba(148, 163, 184, 0.3)",
         mirror=True,
         row=2, col=1
     )
 
-    # Save the stunning prayer dashboard
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    prayer_filename = f"stunning_prayer_dashboard_{timestamp}.html"
+    # Save to outputs directory (will overwrite previous versions)
+    os.makedirs('outputs', exist_ok=True)
+    prayer_filename = os.path.join('outputs', 'prayer_dashboard.html')
+    prayer_png = os.path.join('outputs', 'prayer_dashboard.png')
 
     try:
         fig.write_html(prayer_filename)
-        print(f"\n✨ Saved STUNNING Prayer Dashboard: {prayer_filename}")
+        print(f"\n✅ Saved Prayer Dashboard: {prayer_filename}")
     except Exception as e:
         print(f"\n❌ Failed to save Prayer Dashboard: {e}")
 
     try:
-        prayer_png = f"stunning_prayer_dashboard_{timestamp}.png"
-        fig.write_image(prayer_png, width=1400, height=1000, scale=3)
-        print(f"✨ Saved Prayer PNG: {prayer_png}")
+        from html2image import Html2Image
+        hti = Html2Image()
+        hti.screenshot(html_file=prayer_filename, save_as='prayer_dashboard.png', size=(1400, 1100))
+        
+        # Move to outputs directory
+        import shutil
+        if os.path.exists('prayer_dashboard.png'):
+            shutil.move('prayer_dashboard.png', prayer_png)
+            print(f"✅ Saved Prayer PNG: {prayer_png}")
     except Exception as e:
         print(f"⚠️ Prayer PNG save failed: {e}")
 
     return prayer_filename, fig
 
+
 def create_stunning_newcomers_dashboard(lunch_data, current_year):
-    """Create a stunning Newcomers Lunch dashboard"""
-    print("\n✨ Creating STUNNING Newcomers Lunch Dashboard...")
+    """Create a Newcomers Lunch dashboard"""
+    print("\n✨ Creating Newcomers Lunch Dashboard...")
 
-    # Enhanced modern color palette for newcomers
+    # Import strategic targets
+    from config import STRATEGIC_TARGETS
+    
+    # Light modern color palette (matching nextgen_dashboard)
     colors = {
-        'cumulative': '#06b6d4',      # Cyan
-        'individual': '#8b5cf6',      # Purple
-        'target': '#f59e0b',          # Amber
-        'background': '#0c1120',      # Dark navy
-        'grid': 'rgba(148, 163, 184, 0.1)',
-        'text': '#f1f5f9'
+        'cumulative': '#3b82f6',  # Blue
+        'individual': '#8b5cf6',  # Purple
+        'target_colors': ['#10b981', '#14b8a6', '#06b6d4'],  # Emerald, Teal, Cyan for targets
+        'background': '#ffffff',  # White
+        'plot_bg': '#f8fafc',  # Very light gray
+        'grid': 'rgba(148, 163, 184, 0.2)',
+        'text': '#1e293b'
     }
+    
+    # Dash patterns for different targets
+    dash_patterns = ['dash', 'dot', 'dashdot']
 
-    # Create the figure with dark theme
+    # Calculate cumulative attendance
+    cumulative_data = calculate_cumulative_lunch_attendance(lunch_data, current_year)
+    
+    # Get strategic targets
+    lunch_targets = STRATEGIC_TARGETS['newcomers_lunch']
+    baseline_year = lunch_targets.get('baseline_year')
+    baseline_attendance = lunch_targets.get('baseline_attendance', 16)
+    
+    # Build list of all relevant targets dynamically
+    targets = []
+    
+    # Always include current year target (using baseline or explicit target)
+    current_year_total = None
+    
+    # Check if current year has an explicit target
+    if current_year in lunch_targets['total_visitors']:
+        visitors = lunch_targets['total_visitors'][current_year]
+        pct = lunch_targets['attendance_percentage'][current_year]
+        current_year_total = visitors * pct
+        targets.append({
+            'year': current_year,
+            'total': current_year_total,
+            'visitors': visitors,
+            'pct': pct,
+            'is_baseline': False
+        })
+    else:
+        # Use baseline for current year
+        current_year_total = baseline_attendance
+        targets.append({
+            'year': current_year,
+            'total': current_year_total,
+            'is_baseline': True
+        })
+    
+    # Include future targets
+    for year in sorted(lunch_targets['total_visitors'].keys()):
+        if year > current_year:
+            visitors = lunch_targets['total_visitors'][year]
+            pct = lunch_targets['attendance_percentage'][year]
+            total = visitors * pct
+            targets.append({
+                'year': year,
+                'total': total,
+                'visitors': visitors,
+                'pct': pct,
+                'is_baseline': False
+            })
+    
+    # Sort by year
+    targets.sort(key=lambda x: x['year'])
+    
+    # Calculate prorated targets for current year progress
+    prorated_targets = []
+    for target in targets:
+        prorated_total, year_progress = calculate_prorated_cumulative_target(target['total'], baseline_attendance)
+        prorated_targets.append({
+            **target,
+            'prorated': prorated_total,
+            'year_progress': year_progress
+        })
+    
+    # Print strategic targets
+    print(f"📊 Strategic Targets:")
+    for target in prorated_targets:
+        if target['is_baseline']:
+            print(f"   {target['year']}: {target['total']:.0f} total attendees (baseline)")
+        else:
+            print(f"   {target['year']}: {target['visitors']} visitors × {target['pct']*100:.0f}% = {target['total']:.0f} total attendees")
+        print(f"   Prorated for {target['year_progress']*100:.0f}% of year: {target['prorated']:.0f}")
+
+    # Create the figure with light theme
     fig = make_subplots(
         rows=1, cols=2,
-        subplot_titles=[
-            "<b style='color:#f1f5f9'>📈 Cumulative Progress</b>",
-            "<b style='color:#f1f5f9'>📊 Individual Events</b>"
-        ],
+        subplot_titles=(
+            '<b>Cumulative Attendance Progress</b>',
+            '<b>Individual Event Attendance</b>'
+        ),
+        specs=[[{'type': 'scatter'}, {'type': 'bar'}]],
         horizontal_spacing=0.12
     )
 
-    if lunch_data:
-        cumulative_lunch = calculate_cumulative_lunch_attendance(lunch_data, current_year)
+    if cumulative_data:
+        # LEFT CHART: Cumulative attendance over time
+        dates = [record['date'] for record in cumulative_data]
+        cumulative_values = [record['cumulative'] for record in cumulative_data]
         
-        if cumulative_lunch:
-            cumulative_df = pd.DataFrame(cumulative_lunch)
-            cumulative_df['date'] = pd.to_datetime(cumulative_df['date'])
+        fig.add_trace(
+            go.Scatter(
+                x=dates,
+                y=cumulative_values,
+                mode='lines+markers',
+                name='Cumulative Attendance',
+                line=dict(color=colors['cumulative'], width=3),
+                marker=dict(size=8, color=colors['cumulative']),
+                hovertemplate='<b>%{x|%d %b %Y}</b><br>Total: %{y}<br><extra></extra>'
+            ),
+            row=1, col=1
+        )
+        
+        # Add target lines dynamically
+        positions = ['top left', 'top right', 'bottom right']
+        
+        for idx, target in enumerate(prorated_targets):
+            target_year = target['year']
+            target_value = target['prorated']
+            color = colors['target_colors'][idx % len(colors['target_colors'])]
+            dash = dash_patterns[idx % len(dash_patterns)]
+            position = positions[idx % len(positions)]
             
-            # Left chart: Cumulative progress with gradient fill
-            fig.add_trace(
-                go.Scatter(
-                    x=cumulative_df['date'],
-                    y=cumulative_df['cumulative'],
-                    mode='lines+markers',
-                    name='Cumulative Attendees',
-                    line=dict(color=colors['cumulative'], width=4),
-                    marker=dict(size=10, symbol='circle', line=dict(width=2, color='white')),
-                    fill='tonexty',
-                    fillcolor='rgba(6, 182, 212, 0.3)',
-                    hovertemplate='<b>%{x|%a %d %b}</b><br>This Event: %{customdata}<br>Cumulative: %{y}<br><extra></extra>',
-                    customdata=cumulative_df['attendance']
-                ),
-                row=1, col=1
-            )
-            
-            # Right chart: Individual event attendance with bars
-            fig.add_trace(
-                go.Bar(
-                    x=cumulative_df['date'],
-                    y=cumulative_df['attendance'],
-                    name='Event Attendance',
-                    marker=dict(
-                        color=colors['individual'],
-                        line=dict(width=1, color='white')
-                    ),
-                    hovertemplate='<b>%{x|%a %d %b}</b><br>Attendees: %{y}<br><extra></extra>'
-                ),
-                row=1, col=2
-            )
-            
-            # Calculate cumulative target
-            baseline_lunch = 16  # From strategic plan
-            annual_target_lunch = baseline_lunch * 1.10  # 10% growth
-            cumulative_target, year_progress = calculate_prorated_cumulative_target(annual_target_lunch, baseline_lunch)
-            
-            # Add target line to cumulative chart
             fig.add_hline(
-                y=cumulative_target,
-                line=dict(color=colors['target'], width=3, dash='dash'),
-                annotation_text=f"🎯 Target: {cumulative_target:.1f}",
-                annotation_position="top right",
+                y=target_value,
+                line=dict(color=color, width=2, dash=dash),
+                annotation_text=f"Target {target_year}: {target_value:.0f}",
+                annotation_position=position,
                 annotation=dict(
-                    font=dict(size=14, color=colors['target'], family="Inter"),
-                    bgcolor="rgba(245, 158, 11, 0.1)",
-                    bordercolor=colors['target'],
-                    borderwidth=2,
-                    borderpad=8
+                    font=dict(size=10, color=color),
+                    bgcolor=f"rgba{tuple(list(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)) + [0.1])}",
+                    bordercolor=color,
+                    borderwidth=1.5,
+                    borderpad=4
                 ),
                 row=1, col=1
             )
 
-    # Stunning layout with dark theme
+        # RIGHT CHART: Individual event attendance
+        individual_attendance = [record['attendance'] for record in cumulative_data]
+        
+        fig.add_trace(
+            go.Bar(
+                x=dates,
+                y=individual_attendance,
+                name='Event Attendance',
+                marker=dict(color=colors['individual']),
+                hovertemplate='<b>%{x|%d %b %Y}</b><br>Attendance: %{y}<br><extra></extra>'
+            ),
+            row=1, col=2
+        )
+
+    # Light styling layout
     fig.update_layout(
         title=dict(
-            text="<b style='font-size:28px; color:#f1f5f9'>🍽️ Newcomers Lunch Progress Dashboard</b><br><span style='font-size:16px; color:#94a3b8'>Building Community Through Fellowship</span>",
+            text="<b style='font-size:24px; color:#1e293b'>🍽️ Newcomers Lunch Progress Dashboard</b><br><span style='font-size:13px; color:#64748b'>Building Community Through Fellowship</span>",
             x=0.5,
             y=0.95,
-            font=dict(family="Inter, system-ui, sans-serif")
+            font=dict(family="Arial, sans-serif")
         ),
-        plot_bgcolor=colors['background'],
+        plot_bgcolor=colors['plot_bg'],
         paper_bgcolor=colors['background'],
-        font=dict(family="Inter, system-ui, sans-serif", size=12, color=colors['text']),
+        font=dict(family="Arial, sans-serif", size=11, color=colors['text']),
         height=800,
         width=1400,
         showlegend=True,
@@ -923,20 +1079,20 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
             y=-0.15,
             xanchor="center",
             x=0.5,
-            font=dict(size=14, color=colors['text']),
-            bgcolor="rgba(12, 17, 32, 0.8)",
+            font=dict(size=11, color=colors['text']),
+            bgcolor="rgba(248, 250, 252, 0.9)",
             bordercolor="rgba(148, 163, 184, 0.3)",
             borderwidth=1
         ),
         margin=dict(l=80, r=80, t=140, b=120)
     )
 
-    # Beautiful axes
+    # Axes styling
     fig.update_xaxes(
         showgrid=True,
         gridwidth=1,
         gridcolor=colors['grid'],
-        tickfont=dict(size=12, color=colors['text']),
+        tickfont=dict(size=10, color=colors['text']),
         linecolor="rgba(148, 163, 184, 0.3)",
         mirror=True
     )
@@ -945,7 +1101,7 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
         showgrid=True,
         gridwidth=1,
         gridcolor=colors['grid'],
-        tickfont=dict(size=12, color=colors['text']),
+        tickfont=dict(size=10, color=colors['text']),
         linecolor="rgba(148, 163, 184, 0.3)",
         mirror=True
     )
@@ -954,24 +1110,32 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
     fig.update_yaxes(title_text="<b>Cumulative Attendees</b>", row=1, col=1)
     fig.update_yaxes(title_text="<b>Event Attendance</b>", row=1, col=2)
 
-    # Save the stunning newcomers dashboard
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    newcomers_filename = f"stunning_newcomers_dashboard_{timestamp}.html"
+    # Save to outputs directory (will overwrite previous versions)
+    os.makedirs('outputs', exist_ok=True)
+    newcomers_filename = os.path.join('outputs', 'newcomers_dashboard.html')
+    newcomers_png = os.path.join('outputs', 'newcomers_dashboard.png')
 
     try:
         fig.write_html(newcomers_filename)
-        print(f"\n✨ Saved STUNNING Newcomers Dashboard: {newcomers_filename}")
+        print(f"\n✅ Saved Newcomers Dashboard: {newcomers_filename}")
     except Exception as e:
         print(f"\n❌ Failed to save Newcomers Dashboard: {e}")
 
     try:
-        newcomers_png = f"stunning_newcomers_dashboard_{timestamp}.png"
-        fig.write_image(newcomers_png, width=1400, height=800, scale=3)
-        print(f"✨ Saved Newcomers PNG: {newcomers_png}")
+        from html2image import Html2Image
+        hti = Html2Image()
+        hti.screenshot(html_file=newcomers_filename, save_as='newcomers_dashboard.png', size=(1400, 800))
+        
+        # Move to outputs directory
+        import shutil
+        if os.path.exists('newcomers_dashboard.png'):
+            shutil.move('newcomers_dashboard.png', newcomers_png)
+            print(f"✅ Saved Newcomers PNG: {newcomers_png}")
     except Exception as e:
         print(f"⚠️ Newcomers PNG save failed: {e}")
 
     return newcomers_filename, fig
+
 
 def main():
     """Main execution function"""
@@ -1046,9 +1210,9 @@ def main():
         
         # Create Prayer Dashboard
         prayer_file, prayer_fig = create_stunning_prayer_dashboard(
-            current_prayer_data, last_year_prayer_data, 
-            current_weekly_services, current_quarterly_services, 
-            last_year_weekly_services, last_year_quarterly_services, 
+            current_prayer_data, last_year_prayer_data,
+            current_weekly_services, current_quarterly_services,
+            last_year_weekly_services, last_year_quarterly_services,
             current_year, last_year
         )
         
@@ -1113,6 +1277,7 @@ def main():
         print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     main()
