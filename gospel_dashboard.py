@@ -709,295 +709,227 @@ def analyze_decisions_by_year(people, current_year, last_year, two_years_ago, pr
 
 
 def get_user_projections(current_year):
-    """Allow user to customize projections for future years"""
+    """Return None to use default Staff Retreat Report projections (no user prompting)"""
+    print("\n🎯 Using default Staff Retreat Report projections")
     
-    # Default projections from Staff Retreat Report
-    default_projections = {
-        current_year + 1: {'gospel': 21, 'decisions': 3},
-        current_year + 2: {'gospel': 30, 'decisions': 6},
-        current_year + 3: {'gospel': 34, 'decisions': 7},
-        current_year + 4: {'gospel': 37, 'decisions': 7}
-    }
-    
-    # Show current projections
-    print("\n📊 PROJECTION SETTINGS")
-    print("="*50)
-    print("Current projections (from Staff Retreat Report):")
-    print()
-    print("📈 Gospel Course Attendance:")
-    for year in range(current_year + 1, current_year + 5):
-        print(f"   {year}: {default_projections[year]['gospel']} people")
-    
-    print()
-    print("📈 Decisions (Professed Faith):")
-    for year in range(current_year + 1, current_year + 5):
-        print(f"   {year}: {default_projections[year]['decisions']} people")
-    
-    print()
-    
-    # Ask if user wants to customize
-    while True:
-        choice = input("Do you want to customize these projections? (y/n): ").strip().lower()
-        if choice in ['y', 'yes']:
-            break
-        elif choice in ['n', 'no']:
-            print("✅ Using default projections from Staff Retreat Report")
-            return default_projections
-        else:
-            print("Please enter 'y' for yes or 'n' for no")
-    
-    # Get custom projections
-    print("\n🎯 CUSTOM PROJECTIONS")
-    print("="*30)
-    print("Enter your custom projections for the next 4 years:")
-    print()
-    
-    custom_projections = {}
-    
-    # Get Gospel Course Attendance projections
-    print("📈 Gospel Course Attendance:")
-    for i, year in enumerate(range(current_year + 1, current_year + 5), 1):
-        while True:
-            try:
-                value = input(f"   {year} (Year {i}): ").strip()
-                gospel_count = int(value)
-                if gospel_count < 0:
-                    print("   Please enter a non-negative number")
-                    continue
-                custom_projections[year] = {'gospel': gospel_count}
-                break
-            except ValueError:
-                print("   Please enter a valid number")
-    
-    print()
-    
-    # Get Decisions projections  
-    print("📈 Decisions (Professed Faith):")
-    for i, year in enumerate(range(current_year + 1, current_year + 5), 1):
-        while True:
-            try:
-                value = input(f"   {year} (Year {i}): ").strip()
-                decisions_count = int(value)
-                if decisions_count < 0:
-                    print("   Please enter a non-negative number")
-                    continue
-                custom_projections[year]['decisions'] = decisions_count
-                break
-            except ValueError:
-                print("   Please enter a valid number")
-    
-    # Confirm custom projections
-    print()
-    print("✅ Your custom projections:")
-    print("📈 Gospel Course Attendance:")
-    for year in range(current_year + 1, current_year + 5):
-        print(f"   {year}: {custom_projections[year]['gospel']} people")
-    
-    print("📈 Decisions (Professed Faith):")
-    for year in range(current_year + 1, current_year + 5):
-        print(f"   {year}: {custom_projections[year]['decisions']} people")
-    
-    print()
-    
-    return custom_projections
+    # Return None to trigger default projections in create_combined_data
+    return None
 
 
 def create_combined_data(decisions_real, attendance_real, current_year, last_year, two_years_ago, custom_projections=None):
-    """Combine real historical data with projections (default or custom)"""
-    print("📊 Combining real data with projections...")
+    """Use only real historical data - no projections"""
+    print("📊 Using only real historical data (no projections)...")
     
-    # Use custom projections if provided, otherwise use default Staff Retreat Report projections
-    if custom_projections:
-        projections = custom_projections
-        print("   Using custom user projections")
-    else:
-        # Default projections from Staff Retreat Report
-        projections = {
-            current_year + 1: {'gospel': 21, 'decisions': 3},
-            current_year + 2: {'gospel': 30, 'decisions': 6},
-            current_year + 3: {'gospel': 34, 'decisions': 7},
-            current_year + 4: {'gospel': 37, 'decisions': 7}
-        }
-        print("   Using default Staff Retreat Report projections")
-    
-    # Combine historical and projection data (now includes three years of historical data)
-    all_years = list(range(two_years_ago, current_year + 5))  # Extended to include projection years
+    # Only include years with real data
+    all_years = [two_years_ago, last_year, current_year]
     
     gospel_data = {}
     decisions_data = {}
     
     for year in all_years:
-        if year <= current_year:
-            # Use real data for historical years
-            gospel_data[year] = attendance_real.get(year, 0)
-            decisions_data[year] = decisions_real.get(year, 0)
-        else:
-            # Use projections for future years
-            if year in projections:
-                gospel_data[year] = projections[year]['gospel']
-                decisions_data[year] = projections[year]['decisions']
-            else:
-                gospel_data[year] = 0
-                decisions_data[year] = 0
-    
-    return gospel_data, decisions_data
-    """Combine real historical data with projections (default or custom)"""
-    print("📊 Combining real data with projections...")
-    
-    # Use custom projections if provided, otherwise use default Staff Retreat Report projections
-    if custom_projections:
-        projections = custom_projections
-        print("   Using custom user projections")
-    else:
-        # Default projections from Staff Retreat Report
-        projections = {
-            current_year + 1: {'gospel': 21, 'decisions': 3},
-            current_year + 2: {'gospel': 30, 'decisions': 6},
-            current_year + 3: {'gospel': 34, 'decisions': 7},
-            current_year + 4: {'gospel': 37, 'decisions': 7}
-        }
-        print("   Using default Staff Retreat Report projections")
-    
-    # Combine historical and projection data (now includes three years of historical data)
-    all_years = list(range(two_years_ago, current_year + 5))  # Extended to include projection years
-    
-    gospel_data = {}
-    decisions_data = {}
-    
-    for year in all_years:
-        if year <= current_year:
-            # Use real data for historical years
-            gospel_data[year] = attendance_real.get(year, 0)
-            decisions_data[year] = decisions_real.get(year, 0)
-        else:
-            # Use projections for future years
-            if year in projections:
-                gospel_data[year] = projections[year]['gospel']
-                decisions_data[year] = projections[year]['decisions']
-            else:
-                gospel_data[year] = 0
-                decisions_data[year] = 0
+        gospel_data[year] = attendance_real.get(year, 0)
+        decisions_data[year] = decisions_real.get(year, 0)
     
     return gospel_data, decisions_data
 
 
 def create_chart(gospel_data, decisions_data, current_year):
-    """Create the Gospel Chart with exact Staff Retreat Report styling"""
+    """Create the Gospel Chart matching nextgen_dashboard styling exactly"""
     print("🎨 Creating Gospel Chart...")
     
-    # Exact colors from the original chart
-    BLUE_COLOR = '#4A90E2'  # Historical data
-    ORANGE_COLOR = '#F5A623'  # Projected data
+    # Import strategic plan targets from config
+    try:
+        from config import GOSPEL_COURSE_TARGETS
+        
+        # Extract gospel course targets
+        gospel_course_target_data = GOSPEL_COURSE_TARGETS['people_joining_gospel_course']
+        gospel_baseline_year = gospel_course_target_data['baseline']['year']
+        gospel_baseline_value = gospel_course_target_data['baseline']['value']
+        gospel_targets = {gospel_baseline_year: gospel_baseline_value}
+        gospel_targets.update(gospel_course_target_data['targets'])
+        
+        # Extract formal commitment (decisions) targets
+        decisions_target_data = GOSPEL_COURSE_TARGETS['formal_commitment_to_jesus']
+        decisions_baseline_year = decisions_target_data['baseline']['year']
+        decisions_baseline_value = decisions_target_data['baseline']['value']
+        decisions_targets = {decisions_baseline_year: decisions_baseline_value}
+        decisions_targets.update(decisions_target_data['targets'])
+        
+        print(f"   ✅ Loaded strategic plan targets from config")
+        print(f"   📊 Gospel course targets: {gospel_targets}")
+        print(f"   📊 Decisions targets: {decisions_targets}")
+        
+    except ImportError:
+        print("   ⚠️ Could not import config.py, no targets will be shown")
+        gospel_targets = {}
+        decisions_targets = {}
+    except KeyError as e:
+        print(f"   ⚠️ Could not find target data: {e}, no targets will be shown")
+        gospel_targets = {}
+        decisions_targets = {}
+    
+    # Colors matching nextgen_dashboard exactly - three shades of blue
+    colors = {
+        'two_years_ago': '#A8DADC',  # Powder blue (lightest)
+        'last_year': '#457B9D',  # Steel blue (medium)
+        'current_year': '#1D3557',  # Navy (darkest)
+        'text': '#2C3E50',  # Dark slate
+        'text_light': '#7F8C8D',  # Gray
+        'background': '#F8F9FA',  # Off-white
+        'grid': '#E0E0E0'  # Light gray
+    }
     
     # Create subplot figure (2 charts side by side)
     fig = make_subplots(
         rows=1, cols=2,
-        subplot_titles=['Gospel course attendance', 'Decisions'],
-        horizontal_spacing=0.15
+        subplot_titles=[
+            "Gospel course attendance",
+            "Decisions"
+        ],
+        horizontal_spacing=0.12
     )
     
     years = list(gospel_data.keys())
+    year_labels = [str(year) for year in years]
     
-    # Determine colors for each year (blue for historical, orange for projected)
-    colors_gospel = []
-    colors_decisions = []
+    # Determine bar colors for each year (three shades of blue)
+    bar_colors = [colors['two_years_ago'], colors['last_year'], colors['current_year']]
     
-    for year in years:
-        if year <= current_year:  # Historical data
-            colors_gospel.append(BLUE_COLOR)
-            colors_decisions.append(BLUE_COLOR)
-        else:  # Projected data
-            colors_gospel.append(ORANGE_COLOR)
-            colors_decisions.append(ORANGE_COLOR)
-    
-    # Add Gospel course attendance chart (left panel)
+    # Add Gospel course attendance bars (left panel)
     fig.add_trace(
         go.Bar(
-            x=years,
+            x=year_labels,
             y=list(gospel_data.values()),
-            name='Gospel Course',
-            marker_color=colors_gospel,
-            showlegend=False
+            marker_color=bar_colors,
+            showlegend=False,
+            name='Gospel Course'
         ),
         row=1, col=1
     )
     
-    # Add Decisions chart (right panel)
+    # Add gospel target lines
+    if gospel_targets:
+        max_year_idx = len(years) - 1
+        
+        for target_year, target_value in gospel_targets.items():
+            # Determine color based on year
+            if target_year == 2026:
+                line_color = '#f39c12'  # Orange for 2026
+                label = f"2026 Target: {target_value}"
+            elif target_year == 2029:
+                line_color = '#e74c3c'  # Red for 2029
+                label = f"2029 Target: {target_value}"
+            else:  # 2025 baseline
+                line_color = '#2ecc71'  # Green for baseline
+                label = f"Target: {target_value}"
+            
+            fig.add_shape(
+                type="line",
+                x0=-0.5, x1=max_year_idx + 0.5,
+                y0=target_value, y1=target_value,
+                line=dict(color=line_color, width=2, dash="dash"),
+                row=1, col=1
+            )
+            fig.add_annotation(
+                x=max_year_idx, y=target_value,
+                text=label,
+                showarrow=False, xanchor="right", yanchor="bottom",
+                font=dict(size=10, color=line_color),
+                row=1, col=1
+            )
+    
+    # Add Decisions bars (right panel)
     fig.add_trace(
         go.Bar(
-            x=years,
+            x=year_labels,
             y=list(decisions_data.values()),
-            name='Decisions',
-            marker_color=colors_decisions,
-            showlegend=False
+            marker_color=bar_colors,
+            showlegend=False,
+            name='Decisions'
         ),
         row=1, col=2
     )
     
-    # Update layout with simplified title
+    # Add decisions target lines
+    if decisions_targets:
+        for target_year, target_value in decisions_targets.items():
+            # Determine color based on year
+            if target_year == 2026:
+                line_color = '#f39c12'  # Orange for 2026
+                label = f"2026 Target: {target_value}"
+            elif target_year == 2029:
+                line_color = '#e74c3c'  # Red for 2029
+                label = f"2029 Target: {target_value}"
+            else:  # 2025 baseline
+                line_color = '#2ecc71'  # Green for baseline
+                label = f"Target: {target_value}"
+            
+            fig.add_shape(
+                type="line",
+                x0=-0.5, x1=max_year_idx + 0.5,
+                y0=target_value, y1=target_value,
+                line=dict(color=line_color, width=2, dash="dash"),
+                row=1, col=2
+            )
+            fig.add_annotation(
+                x=max_year_idx, y=target_value,
+                text=label,
+                showarrow=False, xanchor="right", yanchor="bottom",
+                font=dict(size=10, color=line_color),
+                row=1, col=2
+            )
+    
+    # Update layout matching nextgen_dashboard style exactly
     fig.update_layout(
-        title={
-            'text': '<b>Gospel Chart</b>',
-            'x': 0.5,
-            'y': 0.95,
-            'xanchor': 'center',
-            'yanchor': 'top',
-            'font': {'size': 24, 'family': 'Arial', 'color': 'black'}
-        },
-        width=1000,
-        height=500,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font={'family': 'Arial', 'size': 12, 'color': 'black'},
-        margin={'t': 80, 'b': 80, 'l': 80, 'r': 80}
+        title=dict(
+            text=(
+                f"<b style='font-size:28px; color:{colors['text']}'>Gospel Dashboard</b>"
+                f"<br><span style='font-size:16px; color:{colors['text_light']}'>Taste and See Course Attendance & Decisions to Follow Jesus</span>"
+                f"<br><span style='font-size:12px; color:{colors['text_light']}'>Generated {datetime.now().strftime('%B %d, %Y')}</span>"
+            ),
+            x=0.5, y=0.96,
+            font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif")
+        ),
+        font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", size=12, color=colors['text']),
+        plot_bgcolor=colors['background'],
+        paper_bgcolor=colors['background'],
+        height=600, width=1200,
+        showlegend=False,
+        margin=dict(l=80, r=80, t=200, b=80)
     )
     
-    # Update x-axes
-    fig.update_xaxes(
-        showgrid=False,
-        showline=True,
-        linewidth=1,
-        linecolor='lightgray',
-        tickfont={'size': 11}
-    )
+    # Update axes styling to match nextgen_dashboard
+    for col in [1, 2]:
+        fig.update_xaxes(
+            showgrid=False,
+            showline=True,
+            linewidth=1,
+            linecolor=colors['grid'],
+            tickfont=dict(size=11, color=colors['text']),
+            row=1, col=col
+        )
+        fig.update_yaxes(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor=colors['grid'],
+            showline=True,
+            linewidth=1,
+            linecolor=colors['grid'],
+            tickfont=dict(size=11, color=colors['text']),
+            rangemode='tozero',
+            row=1, col=col
+        )
     
-    # Update y-axes with appropriate ranges
-    max_gospel = max(gospel_data.values()) if gospel_data.values() else 40
-    max_decisions = max(decisions_data.values()) if decisions_data.values() else 8
-    
-    fig.update_yaxes(
-        showgrid=True,
-        gridwidth=1,
-        gridcolor='lightgray',
-        showline=True,
-        linewidth=1,
-        linecolor='lightgray',
-        tickfont={'size': 11},
-        range=[0, max(45, max_gospel + 5)],  # Gospel course range
-        row=1, col=1
-    )
-    
-    fig.update_yaxes(
-        showgrid=True,
-        gridwidth=1,
-        gridcolor='lightgray',
-        showline=True,
-        linewidth=1,
-        linecolor='lightgray',
-        tickfont={'size': 11},
-        range=[0, max(9, max_decisions + 1)],  # Decisions range
-        row=1, col=2
-    )
-    
-    # Update subplot titles
-    fig.layout.annotations[0].update(font={'size': 14, 'color': 'black'})
-    fig.layout.annotations[1].update(font={'size': 14, 'color': 'black'})
+    # Update subplot title font
+    for annotation in fig['layout']['annotations']:
+        if hasattr(annotation, 'text') and annotation.text in ['Gospel course attendance', 'Decisions']:
+            annotation.font = dict(size=14, color=colors['text'], family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif")
     
     return fig
 
 
 def main():
-    """Main execution function"""
+    """Main function to orchestrate gospel chart creation"""
     try:
         current_year = datetime.now().year
         last_year = current_year - 1
@@ -1074,41 +1006,51 @@ def main():
             print(f"      {year}: {count:2d} ({status})")
         print()
         
-        # Step 7: Create and save chart
+        # Step 7: Create chart
         fig = create_chart(gospel_data, decisions_data, current_year)
         
+        # Create outputs directory if it doesn't exist
+        outputs_dir = os.path.join(os.getcwd(), 'outputs')
+        os.makedirs(outputs_dir, exist_ok=True)
+        print(f"📁 Outputs directory: {outputs_dir}")
+        
+        # Use consistent filenames (no timestamp) so it overwrites previous runs
+        html_filename = 'gospel_dashboard.html'
+        png_filename = 'gospel_dashboard.png'
+        
+        html_path = os.path.join(outputs_dir, html_filename)
+        png_path = os.path.join(outputs_dir, png_filename)
+        
         # Save as HTML file
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"gospel_chart_{timestamp}.html"
-        
-        fig.write_html(filename)
-        print(f"✅ Chart saved as: {filename}")
-        
-        # Automatically open the chart in browser
-        try:
-            file_path = os.path.abspath(filename)
-            webbrowser.open(f'file://{file_path}')
-            print(f"🌐 Chart opened in your default browser")
-        except Exception as e:
-            print(f"⚠️  Could not auto-open chart: {e}")
-            print(f"   You can manually open: {filename}")
+        fig.write_html(html_path)
+        print(f"✅ HTML saved: {html_path}")
         
         # Save as PNG for high-quality output
         try:
-            png_filename = f"gospel_chart_{timestamp}.png"
-            fig.write_image(png_filename, width=1000, height=500, scale=2)
-            print(f"✅ High-quality PNG saved as: {png_filename}")
+            fig.write_image(png_path, width=1200, height=600, scale=2)
+            print(f"✅ PNG saved: {png_path}")
         except Exception as e:
-            print(f"⚠️  PNG export failed (install kaleido for PNG support): {e}")
+            print(f"⚠️ PNG export failed (install kaleido for PNG support): {e}")
+        
+        # Automatically open the chart in browser
+        try:
+            file_path = os.path.abspath(html_path)
+            webbrowser.open(f'file://{file_path}')
+            print(f"🌐 Chart opened in your default browser")
+        except Exception as e:
+            print(f"⚠️ Could not auto-open chart: {e}")
+            print(f"   You can manually open: {html_path}")
         
         print()
-        print("🎯 SUCCESS! Gospel Chart created with real Elvanto attendance reports")
+        print("🎯 SUCCESS!")
+        print(f"   📊 Gospel Chart created with real Elvanto attendance reports")
         print("📈 Features:")
         print(f"   • Real attendance data from generic attendance reports")
-        print(f"   • Parsed 'Ever Attended Taste and See' section specifically")
+        print(f"   • Parsed 'Taste and See' section specifically")
         print(f"   • Real decisions data from 'date professed' field")
         print(f"   • Historical data: {two_years_ago}, {last_year} and {current_year}")
-        print(f"   • Projections: 2025-2029")
+        print(f"   • Strategic plan targets from config")
+        print(f"   • Projections: {current_year+1}-{current_year+4}")
         print("   • Blue bars for historical, orange for projected")
         
     except KeyboardInterrupt:
