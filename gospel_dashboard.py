@@ -10,6 +10,7 @@ Uses Code GP pattern to access real attendance data from Elvanto reports
 import subprocess
 import sys
 
+
 # Auto-install required packages
 def install_packages():
     packages = ['beautifulsoup4', 'plotly', 'requests', 'pandas']
@@ -22,6 +23,7 @@ def install_packages():
         except ImportError:
             print(f"Installing {package}...")
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
+
 
 # Install packages first
 install_packages()
@@ -59,6 +61,7 @@ except AttributeError:
 
 BASE_URL = "https://api.elvanto.com/v1/"
 
+
 def make_request(endpoint, params=None):
     """Make authenticated request to Elvanto API"""
     if not API_KEY:
@@ -86,6 +89,7 @@ def make_request(endpoint, params=None):
     except Exception as e:
         print(f"   Request failed: {e}")
         return None
+
 
 def fetch_custom_fields():
     """Fetch all custom fields to identify potential date professed fields"""
@@ -132,6 +136,7 @@ def fetch_custom_fields():
         print(f"   💡 The field might have a different name - check the list above")
     
     return professed_candidates
+
 
 def get_date_professed(person, professed_custom_fields=None):
     """Extract Date Professed from person's custom fields (it's a custom datepicker field)"""
@@ -186,6 +191,7 @@ def get_date_professed(person, professed_custom_fields=None):
     
     return None
 
+
 def parse_datepicker_field(date_value):
     """Parse datepicker field value - might be in ISO format or other formats"""
     if not date_value:
@@ -195,7 +201,7 @@ def parse_datepicker_field(date_value):
     
     # Datepicker fields often return ISO format dates
     iso_formats = [
-        '%Y-%m-%d',           # 2024-03-31
+        '%Y-%m-%d',  # 2024-03-31
         '%Y-%m-%dT%H:%M:%S',  # 2024-03-31T00:00:00
         '%Y-%m-%d %H:%M:%S',  # 2024-03-31 00:00:00
     ]
@@ -242,6 +248,7 @@ def parse_datepicker_field(date_value):
                             print(f"   ❌ Could not parse date for {person_name}: '{date_value}'")
     
     return None
+
 
 def parse_date_robust(date_string):
     """Robust date parsing with multiple formats and error handling"""
@@ -311,6 +318,7 @@ def parse_date_robust(date_string):
         pass
     
     return None
+
 
 def fetch_all_people():
     """Fetch ALL people from Elvanto using people/getAll with custom fields"""
@@ -403,6 +411,7 @@ def fetch_all_people():
     
     return all_people, professed_custom_fields
 
+
 def find_taste_and_see_attendance_reports():
     """Find generic attendance report groups (Code GP pattern)"""
     print("📋 Searching for generic attendance report groups...")
@@ -453,6 +462,7 @@ def find_taste_and_see_attendance_reports():
 
     return current_year_group, last_year_group, two_years_ago_group
 
+
 def download_attendance_report_data(group):
     """Download attendance data from a report group (Code GP pattern)"""
     if not group:
@@ -488,8 +498,9 @@ def download_attendance_report_data(group):
         print(f"   ❌ Download failed: {e}")
         return None
 
+
 def parse_attendance_data(html_content, year_label):
-    """Parse attendance data from HTML report - only for 'Ever Attended Taste and See' group"""
+    """Parse attendance data from HTML report - only for 'Taste and See' group"""
     if not html_content:
         return {}
     
@@ -507,8 +518,8 @@ def parse_attendance_data(html_content, year_label):
         print("   ❌ No rows found in table")
         return {}
     
-    # Find the "Ever Attended Taste and See" section
-    print("   🔍 Looking for 'Ever Attended Taste and See' section...")
+    # Find the "Taste and See" section (exact match, not groups with dates)
+    print("   🔍 Looking for 'Taste and See' section...")
     
     target_group_found = False
     target_group_start_row = None
@@ -518,13 +529,26 @@ def parse_attendance_data(html_content, year_label):
         # Check if this is a group header row (black background, white text)
         row_text = row.get_text().strip()
         
-        # Look for "Ever Attended Taste and See" header
-        if 'ever attended taste and see' in row_text.lower():
-            target_group_found = True
-            target_group_start_row = i + 1  # Start parsing from next row
-            print(f"   ✅ Found 'Ever Attended Taste and See' at row {i}")
-            print(f"   📝 Group header text: '{row_text}'")
-            continue
+        # Look for "Taste and See" header - exact match only (not with dates/months)
+        # Convert to lowercase for comparison
+        row_text_lower = row_text.lower()
+        
+        # Check if this row contains "taste and see"
+        if 'taste and see' in row_text_lower:
+            # Make sure it's NOT one of the dated groups
+            # Exclude if it contains month names or years
+            months = ['january', 'february', 'march', 'april', 'may', 'june',
+                     'july', 'august', 'september', 'october', 'november', 'december']
+            has_month = any(month in row_text_lower for month in months)
+            has_year = any(year in row_text for year in ['2024', '2025', '2026', '2027', '2028', '2029'])
+            
+            # Only match if it's exactly "Taste and See" without dates
+            if not has_month and not has_year and row_text_lower.strip() == 'taste and see':
+                target_group_found = True
+                target_group_start_row = i + 1  # Start parsing from next row
+                print(f"   ✅ Found 'Taste and See' at row {i}")
+                print(f"   📝 Group header text: '{row_text}'")
+                continue
         
         # If we found our target group and hit another group header, stop
         if target_group_found and target_group_start_row is not None:
@@ -537,16 +561,16 @@ def parse_attendance_data(html_content, year_label):
                 break
     
     if not target_group_found:
-        print("   ❌ 'Ever Attended Taste and See' section not found in report")
+        print("   ❌ 'Taste and See' section not found in report")
         print("   📋 Available sections found:")
         for i, row in enumerate(rows):
             row_text = row.get_text().strip()
             cells = row.find_all(['td', 'th'])
-            if len(cells) <= 2 and row_text and 'attended' not in row_text.lower():
+            if len(cells) <= 2 and row_text and 'taste' in row_text.lower():
                 print(f"      • Row {i}: '{row_text}'")
         return {}
     
-    # Parse only the rows belonging to "Ever Attended Taste and See"
+    # Parse only the rows belonging to "Taste and See"
     end_row = target_group_end_row if target_group_end_row else len(rows)
     target_rows = rows[target_group_start_row:end_row]
     
@@ -604,16 +628,17 @@ def parse_attendance_data(html_content, year_label):
                 print(f"   ⚠️ Could not parse attendance for {person_name}: '{attended_count}'")
                 continue
     
-    print(f"   🎯 RESULT: {len(attendees)} unique people attended in {year_label} (Ever Attended Taste and See only)")
+    print(f"   🎯 RESULT: {len(attendees)} unique people attended in {year_label} (Taste and See only)")
     
     if attendees:
         print("   👥 People who attended:")
         for name in sorted(list(attendees)):
             print(f"      • {name}")
     else:
-        print("   👥 No attendees found in 'Ever Attended Taste and See' section")
+        print("   👥 No attendees found in 'Taste and See' section")
     
     return {'attendees': attendees, 'count': len(attendees)}
+
 
 def analyze_decisions_by_year(people, current_year, last_year, two_years_ago, professed_custom_fields=None):
     """Analyze people who professed faith in current, last year, and two years ago"""
@@ -682,13 +707,14 @@ def analyze_decisions_by_year(people, current_year, last_year, two_years_ago, pr
     
     return decisions_by_year
 
+
 def get_user_projections(current_year):
     """Allow user to customize projections for future years"""
     
     # Default projections from Staff Retreat Report
     default_projections = {
         current_year + 1: {'gospel': 21, 'decisions': 3},
-        current_year + 2: {'gospel': 30, 'decisions': 6}, 
+        current_year + 2: {'gospel': 30, 'decisions': 6},
         current_year + 3: {'gospel': 34, 'decisions': 7},
         current_year + 4: {'gospel': 37, 'decisions': 7}
     }
@@ -775,6 +801,7 @@ def get_user_projections(current_year):
     
     return custom_projections
 
+
 def create_combined_data(decisions_real, attendance_real, current_year, last_year, two_years_ago, custom_projections=None):
     """Combine real historical data with projections (default or custom)"""
     print("📊 Combining real data with projections...")
@@ -853,13 +880,14 @@ def create_combined_data(decisions_real, attendance_real, current_year, last_yea
     
     return gospel_data, decisions_data
 
+
 def create_chart(gospel_data, decisions_data, current_year):
     """Create the Gospel Chart with exact Staff Retreat Report styling"""
     print("🎨 Creating Gospel Chart...")
     
     # Exact colors from the original chart
-    BLUE_COLOR = '#4A90E2'      # Historical data
-    ORANGE_COLOR = '#F5A623'    # Projected data
+    BLUE_COLOR = '#4A90E2'  # Historical data
+    ORANGE_COLOR = '#F5A623'  # Projected data
     
     # Create subplot figure (2 charts side by side)
     fig = make_subplots(
@@ -957,7 +985,7 @@ def create_chart(gospel_data, decisions_data, current_year):
         linewidth=1,
         linecolor='lightgray',
         tickfont={'size': 11},
-        range=[0, max(9, max_decisions + 1)],   # Decisions range
+        range=[0, max(9, max_decisions + 1)],  # Decisions range
         row=1, col=2
     )
     
@@ -966,6 +994,7 @@ def create_chart(gospel_data, decisions_data, current_year):
     fig.layout.annotations[1].update(font={'size': 14, 'color': 'black'})
     
     return fig
+
 
 def main():
     """Main execution function"""
@@ -1088,6 +1117,7 @@ def main():
         print(f"\nUnexpected error: {e}")
         import traceback
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     main()
