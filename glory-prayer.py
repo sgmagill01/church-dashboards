@@ -491,7 +491,7 @@ def calculate_prorated_cumulative_target(annual_target, baseline):
 
 def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data, current_weekly_services, current_quarterly_services, last_year_weekly_services, last_year_quarterly_services, current_year, last_year):
     """Create a stunning Prayer Meeting dashboard with separate zoom and quarterly charts"""
-    print("\n✨ Creating STUNNING Prayer Meeting Dashboard with separate Zoom & Quarterly charts...")
+    print("\n✨ Creating Prayer Meeting Dashboard with separate Zoom & Quarterly charts...")
 
     # Import strategic targets from new config structure
     try:
@@ -501,27 +501,27 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         print("⚠️ Could not load PRAYER_TARGETS from config.py - continuing without strategic targets")
         PRAYER_TARGETS = None
 
-    # Enhanced modern color palette
+    # Light color palette matching attendance_3yr dashboard
     colors = {
-        'current_year': '#6366f1',  # Indigo
-        'current_smooth': '#8b5cf6',  # Purple
-        'last_year': '#ef4444',  # Red
-        'last_smooth': '#f97316',  # Orange
+        'current_year': '#1D3557',  # Navy (darkest)
+        'current_smooth': '#457B9D',  # Steel blue
+        'last_year': '#E63946',  # Red
+        'last_smooth': '#F77F00',  # Orange
         'target': '#10b981',  # Emerald
         'target_2': '#14b8a6',  # Teal
-        'quarterly_current': '#06b6d4',  # Cyan
+        'quarterly_current': '#2563eb',  # Blue
         'quarterly_last': '#f59e0b',  # Amber
-        'background': '#0f172a',  # Dark blue
-        'grid': 'rgba(148, 163, 184, 0.1)',
-        'text': '#f1f5f9'
+        'background': 'white',  # White background
+        'grid': '#E0E0E0',  # Light gray
+        'text': '#1e293b'  # Dark text
     }
 
     # Create subplots: top for zoom meetings, bottom for quarterly
     fig = make_subplots(
         rows=2, cols=1,
         subplot_titles=[
-            "<b style='color:#f1f5f9'>🔗 Weekly Zoom Prayer Meetings</b>",
-            "<b style='color:#f1f5f9'>📅 Quarterly Prayer Meetings</b>"
+            "<b style='color:#1e293b'>🔗 Weekly Zoom Prayer Meetings</b>",
+            "<b style='color:#1e293b'>📅 Quarterly Prayer Meetings</b>"
         ],
         vertical_spacing=0.12,
         row_heights=[0.65, 0.35]
@@ -687,11 +687,11 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         fig.add_hline(
             y=target_value,
             line=dict(color=target_color, width=2, dash='dash'),
-            annotation_text=f"🎯 {target_year} Target: {target_value}",
+            annotation_text=f"{target_year} Target: {target_value}",
             annotation_position="top right" if idx == 0 else "bottom right",
             annotation=dict(
                 font=dict(size=11, color=target_color, family="Inter"),
-                bgcolor=f"rgba(16, 185, 129, 0.{1 if idx == 0 else 0}.1)",
+                bgcolor="rgba(255, 255, 255, 0.9)",
                 bordercolor=target_color,
                 borderwidth=1,
                 borderpad=4
@@ -771,31 +771,35 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         row=2, col=1
     )
 
-    # Add strategic target lines for quarterly meetings
+    # Add strategic target lines for quarterly meetings - using same positioning as top chart
     for idx, target_info in enumerate(quarterly_strategic_targets[:2]):  # Limit to 2 targets
         target_year = target_info['year']
         target_value = target_info['value']
         target_color = target_colors[idx % len(target_colors)]
         
+        # Use same annotation positioning as top chart
         fig.add_hline(
             y=target_value,
             line=dict(color=target_color, width=2, dash='dash'),
-            annotation_text=f"{target_year}: {target_value}",
+            annotation_text=f"{target_year} Target: {target_value}",
             annotation_position="top right" if idx == 0 else "bottom right",
             annotation=dict(
-                font=dict(size=10, color=target_color, family="Inter"),
-                bgcolor=f"rgba(16, 185, 129, 0.1)",
+                font=dict(size=11, color=target_color, family="Inter"),
+                bgcolor="rgba(255, 255, 255, 0.9)",
                 bordercolor=target_color,
                 borderwidth=1,
-                borderpad=3
+                borderpad=4
             ),
             row=2, col=1
         )
 
-    # Stunning layout with dark theme
+    # Get current date for subtitle
+    current_date = datetime.now().strftime("%B %d, %Y")
+    
+    # Light theme layout
     fig.update_layout(
         title=dict(
-            text=f"<b style='font-size:26px; color:#f1f5f9'>🙏 Prayer Meeting Analysis Dashboard</b><br><span style='font-size:14px; color:#94a3b8'>Weekly Zoom Meetings vs Quarterly In-Person Gatherings • {last_year} vs {current_year}</span>",
+            text=f"<b style='font-size:24px; color:#1e293b'>🙏 Prayer Meeting Analysis Dashboard</b><br><span style='font-size:14px; color:#64748b'>{current_date} • Know Christ. Make Christ Known.</span>",
             x=0.5,
             y=0.97,
             font=dict(family="Inter, system-ui, sans-serif")
@@ -813,8 +817,8 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
             xanchor="center",
             x=0.5,
             font=dict(size=12, color=colors['text']),
-            bgcolor="rgba(15, 23, 42, 0.8)",
-            bordercolor="rgba(148, 163, 184, 0.3)",
+            bgcolor="rgba(255, 255, 255, 0.9)",
+            bordercolor="rgba(0, 0, 0, 0.1)",
             borderwidth=1
         ),
         margin=dict(l=80, r=80, t=120, b=100),
@@ -830,7 +834,7 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         gridcolor=colors['grid'],
         tickfont=dict(size=11, color=colors['text']),
         title=dict(text="<b>Calendar Year</b>", font=dict(size=12, color=colors['text'])),
-        linecolor="rgba(148, 163, 184, 0.3)",
+        linecolor=colors['grid'],
         mirror=True,
         tickformat='%b',
         dtick='M1',
@@ -843,7 +847,7 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         gridcolor=colors['grid'],
         tickfont=dict(size=11, color=colors['text']),
         title=dict(text="<b>Zoom Attendees</b>", font=dict(size=12, color=colors['text'])),
-        linecolor="rgba(148, 163, 184, 0.3)",
+        linecolor=colors['grid'],
         mirror=True,
         row=1, col=1
     )
@@ -855,7 +859,7 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         gridcolor=colors['grid'],
         tickfont=dict(size=11, color=colors['text']),
         title=dict(text="<b>Quarter</b>", font=dict(size=12, color=colors['text'])),
-        linecolor="rgba(148, 163, 184, 0.3)",
+        linecolor=colors['grid'],
         mirror=True,
         row=2, col=1
     )
@@ -866,7 +870,7 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         gridcolor=colors['grid'],
         tickfont=dict(size=11, color=colors['text']),
         title=dict(text="<b>Quarterly Attendees</b>", font=dict(size=12, color=colors['text'])),
-        linecolor="rgba(148, 163, 184, 0.3)",
+        linecolor=colors['grid'],
         mirror=True,
         row=2, col=1
     )
@@ -878,7 +882,7 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
 
     try:
         fig.write_html(prayer_filename)
-        print(f"\n✨ Saved STUNNING Prayer Dashboard: {prayer_filename}")
+        print(f"\n✨ Saved Prayer Dashboard: {prayer_filename}")
     except Exception as e:
         print(f"\n❌ Failed to save Prayer Dashboard: {e}")
 
@@ -903,23 +907,23 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
         print("⚠️ Could not load NEWCOMERS_TARGETS from config.py - continuing without strategic targets")
         NEWCOMERS_TARGETS = None
 
-    # Enhanced modern color palette for newcomers
+    # Light color palette matching attendance_3yr dashboard
     colors = {
-        'cumulative': '#06b6d4',  # Cyan
-        'individual': '#8b5cf6',  # Purple
-        'target': '#f59e0b',  # Amber
+        'cumulative': '#2563eb',  # Blue
+        'individual': '#7c3aed',  # Purple
+        'target': '#10b981',  # Emerald (changed from amber)
         'target_2': '#14b8a6',  # Teal
-        'background': '#0c1120',  # Dark navy
-        'grid': 'rgba(148, 163, 184, 0.1)',
-        'text': '#f1f5f9'
+        'background': 'white',  # White background
+        'grid': '#E0E0E0',  # Light gray
+        'text': '#1e293b'  # Dark text
     }
 
-    # Create the figure with dark theme
+    # Create the figure with light theme
     fig = make_subplots(
         rows=1, cols=2,
         subplot_titles=[
-            "<b style='color:#f1f5f9'>📈 Cumulative Progress</b>",
-            "<b style='color:#f1f5f9'>📊 Individual Events</b>"
+            "<b style='color:#1e293b'>📈 Cumulative Progress</b>",
+            "<b style='color:#1e293b'>📊 Individual Events</b>"
         ],
         horizontal_spacing=0.12
     )
@@ -941,7 +945,7 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
                     line=dict(color=colors['cumulative'], width=4),
                     marker=dict(size=10, symbol='circle', line=dict(width=2, color='white')),
                     fill='tonexty',
-                    fillcolor='rgba(6, 182, 212, 0.3)',
+                    fillcolor='rgba(37, 99, 235, 0.2)',
                     hovertemplate='<b>%{x|%a %d %b}</b><br>This Event: %{customdata}<br>Cumulative: %{y}<br><extra></extra>',
                     customdata=cumulative_df['attendance']
                 ),
@@ -968,18 +972,18 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
             annual_target_lunch = baseline_lunch * 1.10  # 10% growth
             cumulative_target, year_progress = calculate_prorated_cumulative_target(annual_target_lunch, baseline_lunch)
             
-            # Add prorated target line to cumulative chart
+            # Add prorated target line to cumulative chart (current year)
             fig.add_hline(
                 y=cumulative_target,
-                line=dict(color=colors['target'], width=3, dash='dash'),
-                annotation_text=f"🎯 Prorated Target: {cumulative_target:.1f}",
+                line=dict(color=colors['target'], width=2, dash='dash'),
+                annotation_text=f"{current_year} Target: {cumulative_target:.1f}",
                 annotation_position="top right",
                 annotation=dict(
-                    font=dict(size=14, color=colors['target'], family="Inter"),
-                    bgcolor="rgba(245, 158, 11, 0.1)",
+                    font=dict(size=11, color=colors['target'], family="Inter"),
+                    bgcolor="rgba(255, 255, 255, 0.9)",
                     bordercolor=colors['target'],
-                    borderwidth=2,
-                    borderpad=8
+                    borderwidth=1,
+                    borderpad=4
                 ),
                 row=1, col=1
             )
@@ -998,7 +1002,7 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
                 
                 # Calculate approximate newcomers lunch targets based on visitor targets and attendance %
                 for year in sorted(visitors_targets.keys()):
-                    if year >= current_year:
+                    if year > current_year:  # Only future years (not current, as we already show prorated)
                         visitor_target = visitors_targets[year]
                         lunch_pct = lunch_pct_targets.get(year, 0.16)  # Default to 16%
                         # Cumulative lunch target = visitor_target * lunch_pct
@@ -1011,30 +1015,24 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
                 if strategic_targets:
                     print(f"📊 Strategic newcomers targets loaded: {strategic_targets}")
 
-            # Add strategic target lines (future years)
-            target_colors = [colors['target'], colors['target_2']]
-            for idx, target_info in enumerate(strategic_targets[:2]):  # Limit to 2 targets
+            # Add strategic target lines (future years only) - up to 2 targets
+            target_colors_future = [colors['target_2'], colors['target']]
+            annotation_positions = ["bottom right", "bottom left"]
+            
+            for idx, target_info in enumerate(strategic_targets[:2]):  # Show up to 2 future targets
                 target_year = target_info['year']
-                # If it's a future year, show as full year target
-                # If it's current year, prorate it
-                if target_year == current_year:
-                    # Calculate prorated target for current year
-                    target_value = target_info['cumulative_value'] * year_progress
-                    label = f"{target_year} Prorated"
-                else:
-                    target_value = target_info['cumulative_value']
-                    label = f"{target_year} Annual"
-                
-                target_color = target_colors[idx % len(target_colors)]
+                target_value = target_info['cumulative_value']
+                target_color = target_colors_future[idx % len(target_colors_future)]
+                ann_pos = annotation_positions[idx % len(annotation_positions)]
                 
                 fig.add_hline(
                     y=target_value,
                     line=dict(color=target_color, width=2, dash='dot'),
-                    annotation_text=f"{label}: {target_value:.0f}",
-                    annotation_position="bottom right" if idx == 0 else "bottom left",
+                    annotation_text=f"{target_year} Target: {target_value:.0f}",
+                    annotation_position=ann_pos,
                     annotation=dict(
                         font=dict(size=11, color=target_color, family="Inter"),
-                        bgcolor=f"rgba(20, 184, 166, 0.1)",
+                        bgcolor="rgba(255, 255, 255, 0.9)",
                         bordercolor=target_color,
                         borderwidth=1,
                         borderpad=4
@@ -1042,10 +1040,13 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
                     row=1, col=1
                 )
 
-    # Stunning layout with dark theme
+    # Get current date for subtitle
+    current_date = datetime.now().strftime("%B %d, %Y")
+    
+    # Light theme layout
     fig.update_layout(
         title=dict(
-            text="<b style='font-size:28px; color:#f1f5f9'>🍽️ Newcomers Lunch Progress Dashboard</b><br><span style='font-size:16px; color:#94a3b8'>Building Community Through Fellowship</span>",
+            text=f"<b style='font-size:24px; color:#1e293b'>🍽️ Newcomers Lunch Progress Dashboard</b><br><span style='font-size:14px; color:#64748b'>{current_date} • Know Christ. Make Christ Known.</span>",
             x=0.5,
             y=0.95,
             font=dict(family="Inter, system-ui, sans-serif")
@@ -1063,8 +1064,8 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
             xanchor="center",
             x=0.5,
             font=dict(size=14, color=colors['text']),
-            bgcolor="rgba(12, 17, 32, 0.8)",
-            bordercolor="rgba(148, 163, 184, 0.3)",
+            bgcolor="rgba(255, 255, 255, 0.9)",
+            bordercolor="rgba(0, 0, 0, 0.1)",
             borderwidth=1
         ),
         margin=dict(l=80, r=80, t=140, b=120)
@@ -1076,7 +1077,7 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
         gridwidth=1,
         gridcolor=colors['grid'],
         tickfont=dict(size=12, color=colors['text']),
-        linecolor="rgba(148, 163, 184, 0.3)",
+        linecolor=colors['grid'],
         mirror=True
     )
     
@@ -1085,7 +1086,7 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
         gridwidth=1,
         gridcolor=colors['grid'],
         tickfont=dict(size=12, color=colors['text']),
-        linecolor="rgba(148, 163, 184, 0.3)",
+        linecolor=colors['grid'],
         mirror=True
     )
     
@@ -1100,7 +1101,7 @@ def create_stunning_newcomers_dashboard(lunch_data, current_year):
 
     try:
         fig.write_html(newcomers_filename)
-        print(f"\n✨ Saved STUNNING Newcomers Dashboard: {newcomers_filename}")
+        print(f"\n✨ Saved Newcomers Dashboard: {newcomers_filename}")
     except Exception as e:
         print(f"\n❌ Failed to save Newcomers Dashboard: {e}")
 
