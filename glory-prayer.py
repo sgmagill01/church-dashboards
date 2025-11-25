@@ -504,7 +504,7 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         'last_smooth': '#fb923c',  # Light orange
         'target_colors': ['#10b981', '#14b8a6', '#06b6d4'],  # Emerald, Teal, Cyan for targets
         'quarterly_current': '#3b82f6',  # Blue
-        'quarterly_last': '#f59e0b',  # Amber
+        'quarterly_last': '#f59e0f',  # Amber
         'background': '#ffffff',  # White
         'plot_bg': '#f8fafc',  # Very light gray
         'grid': 'rgba(148, 163, 184, 0.2)',
@@ -804,13 +804,13 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         plot_bgcolor=colors['plot_bg'],
         paper_bgcolor=colors['background'],
         font=dict(family="Arial, sans-serif", size=11, color=colors['text']),
-        height=1100,
+        height=1150,  # Increased for annotation space
         width=1400,
         showlegend=True,
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=-0.10,
+            y=-0.08,
             xanchor="center",
             x=0.5,
             font=dict(size=11, color=colors['text']),
@@ -818,7 +818,7 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
             bordercolor="rgba(148, 163, 184, 0.3)",
             borderwidth=1
         ),
-        margin=dict(l=80, r=80, t=110, b=90),
+        margin=dict(l=80, r=80, t=110, b=140),  # Increased bottom margin
         hovermode='x unified',
         barmode='group'
     )
@@ -871,6 +871,25 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
         mirror=True,
         row=2, col=1
     )
+    
+    # Add Prayer Training Hour targets annotation (not yet tracked)
+    training_targets = get_relevant_targets(STRATEGIC_TARGETS.get('prayer_training', {}), current_year)
+    if training_targets:
+        target_text_parts = [f"{t['year']}: {t['value']}" for t in training_targets]
+        training_text = f"<b>Prayer Training Hour Attendance Targets</b> (not yet tracked): {' | '.join(target_text_parts)}"
+        
+        fig.add_annotation(
+            text=training_text,
+            xref="paper", yref="paper",
+            x=0.5, y=-0.06,
+            xanchor='center', yanchor='top',
+            showarrow=False,
+            font=dict(size=10, color='#64748b', family="Arial, sans-serif"),
+            bgcolor="rgba(241, 245, 249, 0.9)",
+            bordercolor="rgba(148, 163, 184, 0.3)",
+            borderwidth=1,
+            borderpad=8
+        )
 
     # Save to outputs directory (will overwrite previous versions)
     os.makedirs('outputs', exist_ok=True)
@@ -886,7 +905,7 @@ def create_stunning_prayer_dashboard(current_prayer_data, last_year_prayer_data,
     try:
         from html2image import Html2Image
         hti = Html2Image()
-        hti.screenshot(html_file=prayer_filename, save_as='prayer_dashboard.png', size=(1400, 1100))
+        hti.screenshot(html_file=prayer_filename, save_as='prayer_dashboard.png', size=(1400, 1150))
         
         # Move to outputs directory
         import shutil
