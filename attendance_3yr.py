@@ -638,6 +638,8 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
     else:
         two_years_label = "Two Years Ago"
     
+    print(f"📝 Using labels: {two_years_label}, {last_label}, {current_label}")
+    
     # Enhanced color scheme
     colors = {
         'current': '#1e40af',
@@ -708,15 +710,31 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
             direction = "↗" if change > 0 else "↘" if change < 0 else "→"
             stats_parts.append(f"Δ {direction}{change:+.1f} ({change_pct:+.1f}%)")
         
-        # Add strategic target for 10:30 AM (only if we have last year data)
+        # Add strategic target for 10:30 AM (keep stats box info, but targets shown as lines)
         if col_name == '10:30 AM' and years_choice >= 2 and last_avg is not None:
-            target_2025 = last_avg * 1.10
-            stats_parts.append(f"Target: {target_2025:.1f}")
-            if current_avg is not None:
-                total_increase_needed = target_2025 - last_avg
-                increase_achieved = current_avg - last_avg
-                target_progress = (increase_achieved / total_increase_needed) * 100 if total_increase_needed > 0 else 0
-                stats_parts.append(f"Progress: {target_progress:.0f}%")
+            # Load the current year target from config for the stats box
+            try:
+                from config import CONGREGATION_1030_TARGETS
+                target_data = CONGREGATION_1030_TARGETS['average_attendance']
+                all_targets = target_data['targets']
+                
+                if current_year in all_targets:
+                    target_current = all_targets[current_year]
+                    stats_parts.append(f"Target: {target_current:.1f}")
+                    if current_avg is not None:
+                        total_increase_needed = target_current - last_avg
+                        increase_achieved = current_avg - last_avg
+                        target_progress = (increase_achieved / total_increase_needed) * 100 if total_increase_needed > 0 else 0
+                        stats_parts.append(f"Progress: {target_progress:.0f}%")
+            except (ImportError, KeyError):
+                # Fallback to old calculation if config not available
+                target_2025 = last_avg * 1.10
+                stats_parts.append(f"Target: {target_2025:.1f}")
+                if current_avg is not None:
+                    total_increase_needed = target_2025 - last_avg
+                    increase_achieved = current_avg - last_avg
+                    target_progress = (increase_achieved / total_increase_needed) * 100 if total_increase_needed > 0 else 0
+                    stats_parts.append(f"Progress: {target_progress:.0f}%")
         
         # Create simple title (no stats) for subplot
         subplot_titles_with_stats.append(chart_title)
@@ -739,7 +757,7 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
     fig = make_subplots(
         rows=2, cols=2,
         subplot_titles=None,
-        vertical_spacing=0.25,
+        vertical_spacing=0.15,
         horizontal_spacing=0.08,
         specs=[[{"secondary_y": False}, {"secondary_y": False}],
                [{"secondary_y": False}, {"secondary_y": False}]]
@@ -758,23 +776,19 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         # Add two years ago data if available and requested
         if years_choice == 3 and len(two_years_df) > 0 and col_name in two_years_df.columns:
             print(f"  📊 Processing {two_years_label} data...")
+            two_years_raw = two_years_df[col_name].values
+            two_years_smooth = calculate_rolling_average(two_years_raw, window=4)
             
-            two_years_smooth = calculate_rolling_average(two_years_df[col_name].values, window=4)
-            
-            hover_text_raw = [
-                f"{row_data['normalized_date'].strftime('%a %d %b')} {row_data['actual_year']}<br>{chart_title}: {row_data[col_name]}"
-                for _, row_data in two_years_df.iterrows()
-            ]
-            
-            hover_text_smooth = [
-                f"{row_data['normalized_date'].strftime('%a %d %b')} {row_data['actual_year']}<br>{chart_title}: {smooth_val:.1f} (4-week avg)"
-                for (_, row_data), smooth_val in zip(two_years_df.iterrows(), two_years_smooth)
-            ]
+            # Create hover text for two years ago
+            hover_text_raw = [f"📅 {date.strftime('%d %b %Y')}<br>👥 {val:.0f} people<br>📈 Raw data" 
+                             for date, val in zip(two_years_df['normalized_date'], two_years_raw)]
+            hover_text_smooth = [f"📅 {date.strftime('%d %b %Y')}<br>👥 {val:.0f} people<br>📊 4-week avg" 
+                                for date, val in zip(two_years_df['normalized_date'], two_years_smooth)]
             
             fig.add_trace(
                 go.Scatter(
                     x=two_years_df['normalized_date'],
-                    y=two_years_df[col_name],
+                    y=two_years_raw,
                     mode='lines',
                     name=f'{two_years_label} (Raw)' if chart_index == 1 else None,
                     line=dict(color=colors['two_years'], width=1, dash='dot'),
@@ -794,7 +808,7 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                     mode='lines+markers',
                     name=f'{two_years_label}' if chart_index == 1 else None,
                     line=dict(color=colors['two_years_smooth'], width=3),
-                    marker=dict(size=4, symbol='square'),
+                    marker=dict(size=4, symbol='diamond'),
                     hovertemplate='%{text}<extra></extra>',
                     text=hover_text_smooth,
                     showlegend=(chart_index == 1),
@@ -806,23 +820,19 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         # Add last year data if available and requested
         if years_choice >= 2 and len(last_df) > 0 and col_name in last_df.columns:
             print(f"  📊 Processing {last_label} data...")
+            last_raw = last_df[col_name].values
+            last_smooth = calculate_rolling_average(last_raw, window=4)
             
-            last_smooth = calculate_rolling_average(last_df[col_name].values, window=4)
-            
-            hover_text_raw = [
-                f"{row_data['normalized_date'].strftime('%a %d %b')} {row_data['actual_year']}<br>{chart_title}: {row_data[col_name]}"
-                for _, row_data in last_df.iterrows()
-            ]
-            
-            hover_text_smooth = [
-                f"{row_data['normalized_date'].strftime('%a %d %b')} {row_data['actual_year']}<br>{chart_title}: {smooth_val:.1f} (4-week avg)"
-                for (_, row_data), smooth_val in zip(last_df.iterrows(), last_smooth)
-            ]
+            # Create hover text for last year
+            hover_text_raw = [f"📅 {date.strftime('%d %b %Y')}<br>👥 {val:.0f} people<br>📈 Raw data" 
+                             for date, val in zip(last_df['normalized_date'], last_raw)]
+            hover_text_smooth = [f"📅 {date.strftime('%d %b %Y')}<br>👥 {val:.0f} people<br>📊 4-week avg" 
+                                for date, val in zip(last_df['normalized_date'], last_smooth)]
             
             fig.add_trace(
                 go.Scatter(
                     x=last_df['normalized_date'],
-                    y=last_df[col_name],
+                    y=last_raw,
                     mode='lines',
                     name=f'{last_label} (Raw)' if chart_index == 1 else None,
                     line=dict(color=colors['last'], width=1, dash='dot'),
@@ -842,7 +852,7 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                     mode='lines+markers',
                     name=f'{last_label}' if chart_index == 1 else None,
                     line=dict(color=colors['last_smooth'], width=3),
-                    marker=dict(size=4, symbol='circle'),
+                    marker=dict(size=4, symbol='diamond'),
                     hovertemplate='%{text}<extra></extra>',
                     text=hover_text_smooth,
                     showlegend=(chart_index == 1),
@@ -854,23 +864,19 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
         # Add current year data if available
         if len(current_df) > 0 and col_name in current_df.columns:
             print(f"  📊 Processing {current_label} data...")
+            current_raw = current_df[col_name].values
+            current_smooth = calculate_rolling_average(current_raw, window=4)
             
-            current_smooth = calculate_rolling_average(current_df[col_name].values, window=4)
-            
-            hover_text_raw = [
-                f"{row_data['normalized_date'].strftime('%a %d %b')} {row_data['actual_year']}<br>{chart_title}: {row_data[col_name]}"
-                for _, row_data in current_df.iterrows()
-            ]
-            
-            hover_text_smooth = [
-                f"{row_data['normalized_date'].strftime('%a %d %b')} {row_data['actual_year']}<br>{chart_title}: {smooth_val:.1f} (4-week avg)"
-                for (_, row_data), smooth_val in zip(current_df.iterrows(), current_smooth)
-            ]
+            # Create hover text for current year
+            hover_text_raw = [f"📅 {date.strftime('%d %b %Y')}<br>👥 {val:.0f} people<br>📈 Raw data" 
+                             for date, val in zip(current_df['normalized_date'], current_raw)]
+            hover_text_smooth = [f"📅 {date.strftime('%d %b %Y')}<br>👥 {val:.0f} people<br>📊 4-week avg" 
+                                for date, val in zip(current_df['normalized_date'], current_smooth)]
             
             fig.add_trace(
                 go.Scatter(
                     x=current_df['normalized_date'],
-                    y=current_df[col_name],
+                    y=current_raw,
                     mode='lines',
                     name=f'{current_label} (Raw)' if chart_index == 1 else None,
                     line=dict(color=colors['current'], width=1, dash='dot'),
@@ -917,33 +923,61 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                     row=row, col=col_pos
                 )
         
+        # Add THREE target lines for 10:30 AM chart only
         if col_name == '10:30 AM' and years_choice >= 2:
-            stats = all_stats[chart_index - 1]
+            print(f"  🎯 Adding strategic plan target lines for 10:30 AM...")
             
-            last_avg = None
-            current_avg = None
-            for stat in stats['stats']:
-                if f"{last_label}:" in stat:
-                    last_avg = float(stat.split(': ')[1])
-                elif f"{current_label}:" in stat:
-                    current_avg = float(stat.split(': ')[1])
-            
-            if last_avg is not None:
-                target_2025 = last_avg * 1.10
+            # Load targets from config
+            try:
+                from config import CONGREGATION_1030_TARGETS
+                target_data = CONGREGATION_1030_TARGETS['average_attendance']
+                all_targets = target_data['targets']
                 
-                fig.add_hline(
-                    y=target_2025,
-                    line=dict(color='#059669', width=2, dash='dash'),
-                    annotation_text=f"Target",
-                    annotation_position="top right",
-                    annotation=dict(
-                        font=dict(size=10, color='#059669'),
-                        bgcolor="rgba(255,255,255,0.9)",
-                        bordercolor='#059669',
-                        borderwidth=1
-                    ),
-                    row=row, col=col_pos
-                )
+                # Get current year, next year, and last configured year
+                target_years = sorted(all_targets.keys())
+                
+                # Determine which three years to show
+                if current_year in target_years:
+                    # Show current year, next year if available, and last year
+                    years_to_show = []
+                    if current_year in target_years:
+                        years_to_show.append(current_year)
+                    if current_year + 1 in target_years:
+                        years_to_show.append(current_year + 1)
+                    if len(years_to_show) < 3 and target_years:
+                        # Add the last configured year
+                        last_year_in_config = target_years[-1]
+                        if last_year_in_config not in years_to_show:
+                            years_to_show.append(last_year_in_config)
+                else:
+                    # Current year not in targets, show first 3 available
+                    years_to_show = target_years[:3]
+                
+                # Define colors for the three target lines
+                target_colors = ['#10b981', '#14b8a6', '#06b6d4']  # Emerald, Teal, Cyan
+                target_positions = ['top right', 'top left', 'top left']
+                
+                for idx, target_year in enumerate(years_to_show[:3]):
+                    target_value = all_targets[target_year]
+                    color = target_colors[idx]
+                    position = target_positions[idx]
+                    
+                    fig.add_hline(
+                        y=target_value,
+                        line=dict(color=color, width=2, dash='dash'),
+                        annotation_text=f"{target_year} Target: {target_value:.1f}",
+                        annotation_position=position,
+                        annotation=dict(
+                            font=dict(size=10, color=color)
+                        ),
+                        row=row, col=col_pos
+                    )
+                    print(f"    ✅ Added {target_year} target: {target_value:.1f}")
+                
+            except ImportError:
+                print("    ⚠️ Could not import config.py - no targets shown")
+            except KeyError as e:
+                print(f"    ⚠️ Target data not found in config: {e}")
     
     # Set consistent x-axis range for all charts
     x_min = datetime(base_year, 1, 1)
@@ -970,6 +1004,21 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
             chart_max = max(chart_values) + 10
             padding = (chart_max - chart_min) * 0.1
             chart_max += padding
+            
+            # For 10:30 AM chart, ensure highest target is at least 1/3 down from top
+            if col_name == '10:30 AM':
+                try:
+                    from config import CONGREGATION_1030_TARGETS
+                    target_data = CONGREGATION_1030_TARGETS['average_attendance']
+                    all_targets = target_data['targets']
+                    if all_targets:
+                        max_target = max(all_targets.values())
+                        # Ensure max_target is at 1/2 from top: max_target = chart_min + (chart_max - chart_min) * (1/2)
+                        # Solving for chart_max: chart_max = (max_target - chart_min) * 2 + chart_min
+                        required_max = (max_target - chart_min) * 1.5 + chart_min
+                        chart_max = max(chart_max, required_max)
+                except (ImportError, KeyError):
+                    pass
         else:
             chart_min, chart_max = 0, 50
         
@@ -1007,6 +1056,7 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
     title_main = "<b style='font-size:24px'>St George's Magill - Attendance Analysis</b>"
     title_sub = f"<br><span style='font-size:14px; color:#64748b'>{dashboard_subtitle}</span>"
     title_note = f"<br><span style='font-size:11px; color:#94a3b8'>Generated {datetime.now().strftime('%B %d, %Y')} • *Averages use only final January data point</span>"
+    
     full_title = title_main + title_sub + title_note
     
     # Build annotation texts
@@ -1051,12 +1101,30 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
                 bgcolor="rgba(255,255,255,0)",
                 borderwidth=0
             ),
+             dict(
+                text="",
+                x=0.01, y=0.01,
+                xref='paper', yref='paper',
+                showarrow=False,
+                font=dict(size=1, color='white'),
+                bgcolor="rgba(255,255,255,0)",
+                borderwidth=0
+            ),
+              dict(
+                text="",
+                x=0.01, y=0.01,
+                xref='paper', yref='paper',
+                showarrow=False,
+                font=dict(size=1, color='white'),
+                bgcolor="rgba(255,255,255,0)",
+                borderwidth=0
+            ),
             dict(
                 text=stats_text_0,
-                x=0.44, y=0.94,
+                x=0.44, y=0.99,
                 xref='paper', yref='paper',
                 showarrow=False, align='right',
-                font=dict(family="Inter, system-ui, sans-serif", size=10, color='#1e293b'),
+                font=dict(family="Inter, system-ui, sans-serif", size=11, color='#1e293b'),
                 bgcolor="rgba(248,250,252,0.9)",
                 bordercolor="rgba(0,0,0,0.1)",
                 borderwidth=1, borderpad=5,
@@ -1064,10 +1132,10 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
             ),
             dict(
                 text=stats_text_1,
-                x=0.90, y=0.94,
+                x=0.90, y=0.99,
                 xref='paper', yref='paper',
                 showarrow=False, align='right',
-                font=dict(family="Inter, system-ui, sans-serif", size=10, color='#1e293b'),
+                font=dict(family="Inter, system-ui, sans-serif", size=11, color='#1e293b'),
                 bgcolor="rgba(248,250,252,0.9)",
                 bordercolor="rgba(0,0,0,0.1)",
                 borderwidth=1, borderpad=5,
@@ -1075,21 +1143,21 @@ def create_enhanced_combined_dashboard(current_data, last_data, two_years_data, 
             ),
             dict(
                 text=stats_text_2,
-                x=0.44, y=0.45,
+                x=0.44, y=0.35,
                 xref='paper', yref='paper',
                 showarrow=False, align='right',
-                font=dict(family="Inter, system-ui, sans-serif", size=10, color='#1e293b'),
+                font=dict(family="Inter, system-ui, sans-serif", size=11, color='#1e293b'),
                 bgcolor="rgba(248,250,252,0.9)",
                 bordercolor="rgba(0,0,0,0.1)",
                 borderwidth=1, borderpad=5,
                 xanchor='right', yanchor='top'
             ),
-            dict(
+             dict(
                 text=stats_text_3,
-                x=0.90, y=0.45,
+                x=0.90, y=0.35,
                 xref='paper', yref='paper',
                 showarrow=False, align='right',
-                font=dict(family="Inter, system-ui, sans-serif", size=10, color='#1e293b'),
+                font=dict(family="Inter, system-ui, sans-serif", size=11, color='#1e293b'),
                 bgcolor="rgba(248,250,252,0.9)",
                 bordercolor="rgba(0,0,0,0.1)",
                 borderwidth=1, borderpad=5,
