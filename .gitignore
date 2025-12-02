@@ -4,7 +4,6 @@ __pycache__/
 .venv/
 
 # Secrets
-config.py
 .env
 
 # OS cruft
@@ -13,3 +12,40 @@ config.py
 # Generated outputs
 outputs/
 people_meta_cache.json
+
+# Strategic Plan 2025-2029 Targets
+# Updated during annual planning cycle (typically August/September)
+
+STRATEGIC_TARGETS = {
+    # Prayer Meeting Targets
+    'prayer_zoom': {
+        'baseline_year': 2025,
+        'baseline_value': 5,
+        'targets': {
+            2026: 7,
+            2029: 10
+        }
+    },
+    'prayer_quarterly': {
+        'baseline_year': 2025,
+        'baseline_value': 17,
+        'targets': {
+            2026: 20,
+            2029: 25
+        }
+    },
+    
+    # Newcomers Lunch Targets
+    'newcomers_lunch': {
+        'baseline_year': 2024,
+        'baseline_attendance': 16,  # Average attendance per event
+        'total_visitors': {
+            2026: 165,
+            2029: 200
+        },
+        'attendance_percentage': {
+            2026: 0.20,  # 20% of visitors attend lunch
+            2029: 0.25   # 25% of visitors attend lunch
+        }
+    }
+}.env

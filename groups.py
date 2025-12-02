@@ -69,6 +69,32 @@ def get_api_key():
     return API_KEY
 
 
+def html_to_png_via_plotly(html_content, output_path):
+    # Plotly cannot render full HTML layouts, but it CAN render text inside figures.
+    # So we wrap the HTML text inside a <br>-formatted plotly annotation.
+    # This gives you a PNG output using the same fig.write_image pipeline.
+    
+    fig = go.Figure()
+
+    fig.add_annotation(
+        x=0,
+        y=1,
+        xref="paper",
+        yref="paper",
+        showarrow=False,
+        text=html_content.replace("\n", "<br>"),
+        align="left"
+    )
+
+    fig.update_layout(
+        width=1200,
+        height=1600,
+        margin=dict(l=10, r=10, t=10, b=10)
+    )
+
+    fig.write_image(output_path)
+
+
 def make_request(endpoint, params=None):
     """Make authenticated request to Elvanto API with better debugging"""
     api_key = get_api_key()
@@ -137,12 +163,12 @@ def normalize_name(name):
 
 
 def find_attendance_report_groups():
-    """Find attendance report groups (reports are stored as groups in Elvanto)"""
+    """Find attendance report groups for current year, last year, and two years ago"""
     print("Searching for attendance report groups...")
     
     response = make_request('groups/getAll', {'page_size': 1000})
     if not response:
-        return None, None
+        return None, None, None
 
     groups = response['groups'].get('group', [])
     if not isinstance(groups, list):
@@ -150,6 +176,7 @@ def find_attendance_report_groups():
 
     current_year_group = None
     last_year_group = None
+    two_years_ago_group = None
     current_year = datetime.now().year
 
     print(f"Scanning {len(groups)} groups for attendance reports...")
@@ -158,7 +185,7 @@ def find_attendance_report_groups():
         group_name = group.get('name', '').lower()
         
         # Look for the correct group name patterns
-        if 'report of group individual attendance' in group_name:
+        if 'report of group individual attendance' in group_name and 'last year' not in group_name and 'two years' not in group_name:
             # This should be the current year report
             current_year_group = group
             print(f"Found current year report: {group.get('name')}")
@@ -167,6 +194,11 @@ def find_attendance_report_groups():
             # This should be the last year report
             last_year_group = group
             print(f"Found last year report: {group.get('name')}")
+            
+        elif 'report of two years ago group individual attendance' in group_name:
+            # This should be the two years ago report
+            two_years_ago_group = group
+            print(f"Found two years ago report: {group.get('name')}")
         
         # Also check for service attendance reports (alternative naming)
         elif ('service individual attendance' in group_name or 
@@ -178,8 +210,11 @@ def find_attendance_report_groups():
             elif str(current_year - 1) in group_name:
                 last_year_group = group
                 print(f"Found last year service report: {group.get('name')}")
+            elif str(current_year - 2) in group_name:
+                two_years_ago_group = group
+                print(f"Found two years ago service report: {group.get('name')}")
 
-    return current_year_group, last_year_group
+    return current_year_group, last_year_group, two_years_ago_group
 
 
 def download_group_attendance_data(group):
@@ -1191,40 +1226,48 @@ def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, fo
     
     # Save to outputs directory
     import os
+    import shutil
     outputs_dir = 'outputs'
     os.makedirs(outputs_dir, exist_ok=True)
     
-    filename = os.path.join(outputs_dir, 'bible_study_followup_members.html')
-    with open(filename, 'w', encoding='utf-8') as f:
+    html_filename = 'bible_study_followup_members.html'
+    html_filepath = os.path.join(outputs_dir, html_filename)
+    
+    # Save HTML
+    with open(html_filepath, 'w', encoding='utf-8') as f:
         f.write(html_content)
     
-    print(f"✅ Follow-up member list saved: {filename}")
+    print(f"✅ Dashboard saved: {html_filepath}")
     
-    # Try to generate PNG with increased height
+    # Generate PNG image using html2image (same as using_gifts_dashboard.py)
     print("🖼️ Generating PNG image...")
     try:
         from html2image import Html2Image
         hti = Html2Image()
         
         png_filename = 'bible_study_followup_members.png'
+        png_filepath = os.path.join(outputs_dir, png_filename)
+        
+        # Generate PNG from HTML file
         hti.screenshot(
-            html_file=filename,
+            html_file=html_filepath,
             save_as=png_filename,
-            size=(1200, 2400)  # Increased height from 1600 to 2400
+            size=(1200, 1600)  # Width x Height - good for dashboard layout
         )
         
-        # Move to outputs directory
+        # html2image saves in current directory, so move it to outputs
         if os.path.exists(png_filename):
-            import shutil
-            png_filepath = os.path.join(outputs_dir, png_filename)
-            shutil.move(png_filepath, png_filepath) if os.path.exists(png_filepath) else shutil.move(png_filename, png_filepath)
+            shutil.move(png_filename, png_filepath)
             print(f"✅ PNG image saved: {png_filepath}")
-    except ImportError:
-        print(f"⚠️ PNG export skipped: html2image not installed")
+            print(f"📁 Both files ready in the '{outputs_dir}' directory!")
+        else:
+            print(f"⚠️ PNG generation failed - file not created")
+            
     except Exception as e:
-        print(f"⚠️ PNG export failed: {e}")
+        print(f"⚠️ PNG generation failed (HTML still available): {e}")
+        print(f"   HTML file is available: {html_filepath}")
     
-    return filename
+    return html_filepath
 
 
 def cleanup_old_files():
@@ -1258,10 +1301,12 @@ def create_bible_study_attendance_analysis():
     """Main function to create the attendance analysis"""
     current_year = datetime.now().year
     last_year = current_year - 1
+    two_years_ago = current_year - 2
 
     print("BIBLE STUDY GROUP ATTENDANCE ANALYSIS")
     print(f"This Calendar Year: {current_year}")
     print(f"Last Calendar Year: {last_year}")
+    print(f"Two Years Ago: {two_years_ago}")
     print("=" * 80)
 
     # Clean up any existing files first
@@ -1272,9 +1317,9 @@ def create_bible_study_attendance_analysis():
     if not test_api_connection():
         return None
 
-    # Step 1: Find This Calendar Year and Last Calendar Year attendance report groups
+    # Step 1: Find all three attendance report groups
     print("\nStep 1: Finding calendar year attendance report groups...")
-    current_year_group, last_year_group = find_attendance_report_groups()
+    current_year_group, last_year_group, two_years_ago_group = find_attendance_report_groups()
 
     if not current_year_group:
         print("No current year 'Individual Group Attendance' report group found")
@@ -1282,7 +1327,7 @@ def create_bible_study_attendance_analysis():
 
     print("Found current year report group")
 
-    # Step 2: Download attendance data from both groups
+    # Step 2: Download attendance data from all available groups
     print("\nStep 2: Downloading attendance data from groups...")
     current_year_data = download_group_attendance_data(current_year_group)
 
@@ -1296,7 +1341,15 @@ def create_bible_study_attendance_analysis():
         last_year_data = download_group_attendance_data(last_year_group)
         print("Downloaded last year attendance data")
     else:
-        print("No last year report group found, continuing with current year only")
+        print("No last year report group found")
+
+    # Download two years ago data if available
+    two_years_ago_data = None
+    if two_years_ago_group:
+        two_years_ago_data = download_group_attendance_data(two_years_ago_group)
+        print("Downloaded two years ago attendance data")
+    else:
+        print("No two years ago report group found")
 
     # Step 3: Extract attendance data (incl. recent missed)
     current_attendance_data = extract_groups_from_attendance_data(current_year_data)
@@ -1312,6 +1365,11 @@ def create_bible_study_attendance_analysis():
     else:
         last_year_attendance_data = {}
         last_year_monthly_data = {}
+
+    if two_years_ago_data:
+        two_years_ago_attendance_data = extract_groups_from_attendance_data(two_years_ago_data)
+    else:
+        two_years_ago_attendance_data = {}
 
     # Debug: show recent missed counts
     print(f"\nDEBUG - Attendance data extracted:")
@@ -1359,28 +1417,74 @@ def create_bible_study_attendance_analysis():
     # Step 6: Analyze attendance patterns
     print("\nStep 6: Analyzing attendance patterns...")
     all_attendance_data = {}
+    
+    # Combine all three years of data
     for group_name, group_info in current_attendance_data.items():
         if group_name not in all_attendance_data:
             all_attendance_data[group_name] = {
                 'this_year_attendees': [], 'this_year_all_people': [],
-                'this_year_recent_missed': [], 'last_year_attendees': [], 'last_year_all_people': []
+                'this_year_recent_missed': [], 'this_year_member_last_attended': {},
+                'last_year_attendees': [], 'last_year_all_people': [],
+                'last_year_member_last_attended': {},
+                'two_years_ago_member_last_attended': {}
             }
         all_attendance_data[group_name]['this_year_attendees'] = group_info.get('attendees', [])
         all_attendance_data[group_name]['this_year_all_people'] = group_info.get('all_people', [])
         all_attendance_data[group_name]['this_year_recent_missed'] = group_info.get('recent_missed', [])
+        all_attendance_data[group_name]['this_year_member_last_attended'] = group_info.get('member_last_attended', {})
 
     for group_name, group_info in last_year_attendance_data.items():
         if group_name not in all_attendance_data:
             all_attendance_data[group_name] = {
                 'this_year_attendees': [], 'this_year_all_people': [],
-                'this_year_recent_missed': [], 'last_year_attendees': [], 'last_year_all_people': []
+                'this_year_recent_missed': [], 'this_year_member_last_attended': {},
+                'last_year_attendees': [], 'last_year_all_people': [],
+                'last_year_member_last_attended': {},
+                'two_years_ago_member_last_attended': {}
             }
         all_attendance_data[group_name]['last_year_attendees'] = group_info.get('attendees', [])
         all_attendance_data[group_name]['last_year_all_people'] = group_info.get('all_people', [])
+        all_attendance_data[group_name]['last_year_member_last_attended'] = group_info.get('member_last_attended', {})
+
+    for group_name, group_info in two_years_ago_attendance_data.items():
+        if group_name not in all_attendance_data:
+            all_attendance_data[group_name] = {
+                'this_year_attendees': [], 'this_year_all_people': [],
+                'this_year_recent_missed': [], 'this_year_member_last_attended': {},
+                'last_year_attendees': [], 'last_year_all_people': [],
+                'last_year_member_last_attended': {},
+                'two_years_ago_member_last_attended': {}
+            }
+        all_attendance_data[group_name]['two_years_ago_member_last_attended'] = group_info.get('member_last_attended', {})
 
     print("\nDEBUG: Available attendance group names:")
     for group_name in sorted(all_attendance_data.keys()):
         print(f"   '{group_name}'")
+
+    # Helper function to find last attended date across all years
+    def get_last_attended_date(member_name, group_attendance_data):
+        """
+        Find the most recent attendance date for a member across all three years.
+        Returns: date string like "08/03" or None
+        """
+        member_norm = normalize_name(member_name)
+        
+        # Check current year first
+        for name, date in group_attendance_data.get('this_year_member_last_attended', {}).items():
+            if normalize_name(name) == member_norm:
+                return f"{date} ({current_year})"
+        
+        # Check last year
+        for name, date in group_attendance_data.get('last_year_member_last_attended', {}).items():
+            if normalize_name(name) == member_norm:
+                return f"{date} ({last_year})"
+        
+        # Check two years ago
+        for name, date in group_attendance_data.get('two_years_ago_member_last_attended', {}).items():
+            if normalize_name(name) == member_norm:
+                return f"{date} ({two_years_ago})"
+        
+        return None
 
     follow_up_this_year = {}
     follow_up_last_year = {}
@@ -1426,21 +1530,34 @@ def create_bible_study_attendance_analysis():
             member_name = member['name']
             member_norm = normalize_name(member_name)
 
+            # Check if missed recent meetings
             missed_recent = any(normalize_name(p) == member_norm for p in this_year_recent_missed)
             if missed_recent:
-                group_followup_recent_missed.append(member)
+                # Create enriched member dict with last attended date
+                enriched_member = member.copy()
+                last_attended = get_last_attended_date(member_name, matching_attendance)
+                enriched_member['last_attended'] = last_attended if last_attended else f'Not since before {two_years_ago}'
+                group_followup_recent_missed.append(enriched_member)
 
+            # Check if appears but didn't attend this year
             appears_this_year = any(normalize_name(p) == member_norm for p in this_year_all_people)
             if appears_this_year:
                 attended_this_year = any(normalize_name(p) == member_norm for p in this_year_attendees)
                 if not attended_this_year:
-                    group_followup_this_year.append(member)
+                    enriched_member = member.copy()
+                    last_attended = get_last_attended_date(member_name, matching_attendance)
+                    enriched_member['last_attended'] = last_attended if last_attended else f'Not since before {two_years_ago}'
+                    group_followup_this_year.append(enriched_member)
 
+            # Check if appears but didn't attend last year
             appears_last_year = any(normalize_name(p) == member_norm for p in last_year_all_people)
             if appears_last_year:
                 attended_last_year = any(normalize_name(p) == member_norm for p in last_year_attendees)
                 if not attended_last_year:
-                    group_followup_last_year.append(member)
+                    enriched_member = member.copy()
+                    last_attended = get_last_attended_date(member_name, matching_attendance)
+                    enriched_member['last_attended'] = last_attended if last_attended else f'Not since before {two_years_ago}'
+                    group_followup_last_year.append(enriched_member)
 
         if group_followup_recent_missed:
             follow_up_recent_missed[api_group_name] = group_followup_recent_missed
@@ -1449,11 +1566,14 @@ def create_bible_study_attendance_analysis():
         if group_followup_last_year:
             follow_up_last_year[api_group_name] = group_followup_last_year
 
-    # ---- Step 7b UPDATED: create the 3-across PNG grid for the per-group progressive charts ----
+    print("\nStep 7: Creating visualizations...")
+    # create_charts(follow_up_this_year, follow_up_last_year, current_year, last_year)  # REMOVED - not needed
+
+    # Step 7b: create the 3-across PNG grid for the per-group progressive charts
     print("\nStep 7b: Creating progressive monthly attendance grid (PNG)...")
     create_progressive_attendance_charts(current_monthly_data, last_year_monthly_data, current_year, last_year)
 
-    # Step 8: Detailed follow-up HTML list (unchanged)
+    # Step 8: Detailed follow-up HTML list
     print("\nStep 8: Generating follow-up member list...")
     create_followup_member_list(follow_up_recent_missed, follow_up_this_year, follow_up_last_year, current_year, last_year)
 
