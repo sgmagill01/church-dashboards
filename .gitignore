@@ -49,3 +49,4 @@ STRATEGIC_TARGETS = {
         }
     }
 }.env
+.claude/
