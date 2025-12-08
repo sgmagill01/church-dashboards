@@ -16,9 +16,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.io as pio
 
-# Import API key
+# Import API key and strategic targets
 try:
-    from config import ELVANTO_API_KEY
+    from config import ELVANTO_API_KEY, NEWCOMERS_TARGETS
     API_KEY = ELVANTO_API_KEY
 except ImportError:
     print("❌ Error: config.py not found!")
@@ -1295,24 +1295,23 @@ def get_default_single_year(year):
 
 def create_plotly_charts(visitor_data, stayed_data, congregation_averages):
     """
-    Compact A4 portrait layout with Metric-First tables:
-      • Four charts stacked vertically (compressed for A4)
-      • Four separate tables below, one per metric (Visitors, VR%, Stayed, SR%)
-      • Sized to fit on A4 page: 1000×1400px
-      • Fixed: no overlapping titles or labels
-      • Fixed: Mid-week row no longer cut off
+    Streamlined 2x2 chart layout with strategic targets (NO TABLES):
+      • 2 rows x 2 columns grid layout
+      • Row 1: Visitor Numbers (left) | Stay Numbers (right)
+      • Row 2: Visitor Ratios % (left) | Stay Ratios % (right)
+      • Strategic target lines on Visitor Numbers and Stay Ratios % charts
     """
     from datetime import datetime
     from plotly.subplots import make_subplots
     import plotly.graph_objects as go
 
-    print("\n📊 Creating Plotly charts in A4 portrait layout + Metric-First tables…")
+    print("\n📊 Creating Plotly charts in 2x2 grid layout with strategic targets…")
 
     current_year = datetime.now().year
     years = [current_year - 2, current_year - 1, current_year]
     y_23, y_24, y_25 = years  # two_years_ago, last_year, this_year
 
-    regular_services = ['8:30AM', '10:30AM', '6:30PM', 'Mid-week']
+    regular_services = ['8:30AM', '10:30AM', '6:30PM']  # Removed Mid-week
     services = ['Overall'] + regular_services  # Overall first for headline
 
     # Helpers to read both shapes from congregation_averages
@@ -1337,7 +1336,6 @@ def create_plotly_charts(visitor_data, stayed_data, congregation_averages):
     stayed_counts  = {s: [] for s in services}
     visitor_ratios = {s: [] for s in services}
     stay_ratios    = {s: [] for s in services}
-    metrics = {s: {y: {'visitors': 0, 'vratio': 0.0, 'stayed': 0, 'sratio': 0.0} for y in years} for s in services}
 
     # Build per-year metrics
     for year in years:
@@ -1371,8 +1369,6 @@ def create_plotly_charts(visitor_data, stayed_data, congregation_averages):
             visitor_ratios[svc].append(vr)
             stay_ratios[svc].append(sr)
 
-            metrics.setdefault(svc, {})[year] = {'visitors': v, 'vratio': vr, 'stayed': s, 'sratio': sr}
-
             total_visitors_raw += v
             total_stayed += s
             total_avg_congregation += avg_cong
@@ -1389,246 +1385,321 @@ def create_plotly_charts(visitor_data, stayed_data, congregation_averages):
         visitor_ratios['Overall'].append(ov_vr)
         stay_ratios['Overall'].append(ov_sr)
 
-        metrics['Overall'][year] = {'visitors': ov_vis, 'vratio': ov_vr, 'stayed': ov_sty, 'sratio': ov_sr}
-
-    # ---- Layout: 8 rows (4 charts + 4 tables) x 1 col - COMPRESSED FOR A4 ----
+    # ---- Layout: 2 rows x 2 columns ----
     fig = make_subplots(
-        rows=8, cols=1,
-        specs=[
-            [{"type": "xy"}],      # 1: Visitor Numbers chart
-            [{"type": "xy"}],      # 2: Visitor Ratios chart
-            [{"type": "xy"}],      # 3: Stayed Numbers chart
-            [{"type": "xy"}],      # 4: Stay Ratios chart
-            [{"type": "domain"}],  # 5: VISITORS table
-            [{"type": "domain"}],  # 6: VISITOR RATIO table
-            [{"type": "domain"}],  # 7: STAYED table
-            [{"type": "domain"}],  # 8: STAY RATIO table
-        ],
-        row_heights=[0.132, 0.132, 0.132, 0.132, 0.118, 0.118, 0.118, 0.118],  # Increased table heights
-        vertical_spacing=0.033,  # Slightly reduced spacing to accommodate larger tables
+        rows=2, cols=2,
         subplot_titles=[
-            'Visitor Numbers by Service',
+            'Visitor Numbers by Congregation',
+            'Stay Numbers by Congregation',
             'Visitor Ratios (% of Congregation)',
-            'Stay Numbers by Service',
-            'Stay Ratios (%)',
-            '<b>VISITORS</b>',
-            '<b>VISITOR RATIO (% of Congregation)</b>',
-            '<b>STAYED</b>',
-            '<b>STAY RATIO (%)</b>'
-        ]
+            'Stay Ratios (%)'
+        ],
+        vertical_spacing=0.15,
+        horizontal_spacing=0.18
     )
 
     service_colors = {
         '8:30AM':   '#dc2626',
         '10:30AM':  '#2563eb',
         '6:30PM':   '#059669',
-        'Mid-week': '#ea580c',
         'Overall':  '#f59e0b'
     }
     year_labels = [str(y) for y in years]
 
-    # Charts: rows 1–4
+    # Row 1, Col 1: Visitor Numbers
     for svc in services:
         fig.add_trace(go.Bar(x=year_labels, y=visitor_counts[svc], name=svc,
                              marker_color=service_colors[svc], legendgroup='services', showlegend=True),
                       row=1, col=1)
+
+    # Row 1, Col 2: Stay Numbers
+    for svc in services:
+        fig.add_trace(go.Bar(x=year_labels, y=stayed_counts[svc], name=svc,
+                             marker_color=service_colors[svc], legendgroup='services', showlegend=False),
+                      row=1, col=2)
+
+    # Row 2, Col 1: Visitor Ratios
     for svc in services:
         fig.add_trace(go.Bar(x=year_labels, y=visitor_ratios[svc], name=svc,
                              marker_color=service_colors[svc], legendgroup='services', showlegend=False),
                       row=2, col=1)
-    for svc in services:
-        fig.add_trace(go.Bar(x=year_labels, y=stayed_counts[svc], name=svc,
-                             marker_color=service_colors[svc], legendgroup='services', showlegend=False),
-                      row=3, col=1)
+
+    # Row 2, Col 2: Stay Ratios
     for svc in services:
         fig.add_trace(go.Bar(x=year_labels, y=stay_ratios[svc], name=svc,
                              marker_color=service_colors[svc], legendgroup='services', showlegend=False),
-                      row=4, col=1)
+                      row=2, col=2)
 
-    # --- TABLE LAYOUT: Four separate tables, one per metric ---
-    def fmt_i(n): return int(round(n))
-    def fmt_p(x): return f"{x:.1f}"
+    # ---- Add Strategic Target Lines ----
+    # Extract targets from config
+    visitor_targets = NEWCOMERS_TARGETS['total_visitors_annual']
+    stay_ratio_targets = NEWCOMERS_TARGETS['visitor_stay_ratio']
 
-    # Common header for all tables - using "Congregation" instead of "Service"
-    table_header = ["Congregation", str(y_23), str(y_24), f"Δ {y_24}-{y_23}", str(y_25), f"Δ {y_25}-{y_24}"]
+    # Import 10:30 congregation targets
+    from config import CONGREGATION_1030_TARGETS
+    visitor_ratio_1030 = CONGREGATION_1030_TARGETS['visitor_ratio']
+    new_members_1030 = CONGREGATION_1030_TARGETS['stay_numbers_1030']
 
-    # Table 1: VISITORS
-    visitors_rows = []
-    for svc in services:
-        m23 = metrics[svc][y_23]
-        m24 = metrics[svc][y_24]
-        m25 = metrics[svc][y_25]
-        visitors_rows.append([
-            svc,
-            fmt_i(m23['visitors']),
-            fmt_i(m24['visitors']),
-            fmt_i(m24['visitors'] - m23['visitors']),
-            fmt_i(m25['visitors']),
-            fmt_i(m25['visitors'] - m24['visitors'])
-        ])
+    # Visitor Numbers chart (row 1, col 1) - Overall targets
+    # 2025 Target: 150 (emerald, solid)
+    fig.add_hline(y=visitor_targets['baseline']['value'],
+                  line=dict(color='#10b981', width=2, dash='solid'),
+                  annotation_text=f"Overall Target: {visitor_targets['baseline']['value']} (2025)",
+                  annotation_position="right",
+                  row=1, col=1)
 
-    fig.add_trace(
-        go.Table(
-            header=dict(
-                values=table_header,
-                fill_color='#e8f4f8',
-                font=dict(color='#0f172a', size=9, family='Inter'),
-                align='center', height=22
-            ),
-            cells=dict(
-                values=list(map(list, zip(*visitors_rows))),
-                fill_color='#ffffff',
-                align=['left'] + ['right']*5,
-                height=18,
-                font=dict(size=8, color='#334155', family='Inter')
-            ),
-            columnwidth=[110, 70, 70, 90, 70, 90]
-        ),
-        row=5, col=1
-    )
+    # 2026 Target: 165 (teal, dashed)
+    fig.add_hline(y=visitor_targets['targets'][2026],
+                  line=dict(color='#14b8a6', width=2, dash='dash'),
+                  annotation_text=f"Overall Target: {visitor_targets['targets'][2026]} (2026)",
+                  annotation_position="right",
+                  row=1, col=1)
 
-    # Table 2: VISITOR RATIO
-    vr_rows = []
-    for svc in services:
-        m23 = metrics[svc][y_23]
-        m24 = metrics[svc][y_24]
-        m25 = metrics[svc][y_25]
-        vr_rows.append([
-            svc,
-            fmt_p(m23['vratio']),
-            fmt_p(m24['vratio']),
-            fmt_p(m24['vratio'] - m23['vratio']),
-            fmt_p(m25['vratio']),
-            fmt_p(m25['vratio'] - m24['vratio'])
-        ])
+    # 2029 Target: 200 (cyan, dashed)
+    fig.add_hline(y=visitor_targets['targets'][2029],
+                  line=dict(color='#06b6d4', width=2, dash='dash'),
+                  annotation_text=f"Overall Target: {visitor_targets['targets'][2029]} (2029)",
+                  annotation_position="right",
+                  row=1, col=1)
 
-    fig.add_trace(
-        go.Table(
-            header=dict(
-                values=table_header,
-                fill_color='#fef3c7',
-                font=dict(color='#0f172a', size=9, family='Inter'),
-                align='center', height=22
-            ),
-            cells=dict(
-                values=list(map(list, zip(*vr_rows))),
-                fill_color='#ffffff',
-                align=['left'] + ['right']*5,
-                height=18,
-                font=dict(size=8, color='#334155', family='Inter')
-            ),
-            columnwidth=[110, 70, 70, 90, 70, 90]
-        ),
-        row=6, col=1
-    )
+    # Stay Numbers chart (row 1, col 2) - 10:30 new congregation members targets
+    baseline_year = new_members_1030['baseline']['year']
+    # 2025 Target: 15 (emerald, solid)
+    fig.add_hline(y=new_members_1030['baseline']['value'],
+                  line=dict(color='#10b981', width=2, dash='solid'),
+                  annotation_text=f"10:30 Tgt {baseline_year}: {new_members_1030['baseline']['value']}",
+                  annotation_position="right",
+                  row=1, col=2)
 
-    # Table 3: STAYED
-    stayed_rows = []
-    for svc in services:
-        m23 = metrics[svc][y_23]
-        m24 = metrics[svc][y_24]
-        m25 = metrics[svc][y_25]
-        stayed_rows.append([
-            svc,
-            fmt_i(m23['stayed']),
-            fmt_i(m24['stayed']),
-            fmt_i(m24['stayed'] - m23['stayed']),
-            fmt_i(m25['stayed']),
-            fmt_i(m25['stayed'] - m24['stayed'])
-        ])
+    # 2026 Target: 22 (teal, dashed)
+    fig.add_hline(y=new_members_1030['targets'][2026],
+                  line=dict(color='#14b8a6', width=2, dash='dash'),
+                  annotation_text=f"10:30 Tgt 2026: {new_members_1030['targets'][2026]}",
+                  annotation_position="right",
+                  row=1, col=2)
 
-    fig.add_trace(
-        go.Table(
-            header=dict(
-                values=table_header,
-                fill_color='#d1fae5',
-                font=dict(color='#0f172a', size=9, family='Inter'),
-                align='center', height=22
-            ),
-            cells=dict(
-                values=list(map(list, zip(*stayed_rows))),
-                fill_color='#ffffff',
-                align=['left'] + ['right']*5,
-                height=18,
-                font=dict(size=8, color='#334155', family='Inter')
-            ),
-            columnwidth=[110, 70, 70, 90, 70, 90]
-        ),
-        row=7, col=1
-    )
+    # 2029 Target: 30 (cyan, dashed)
+    fig.add_hline(y=new_members_1030['targets'][2029],
+                  line=dict(color='#06b6d4', width=2, dash='dash'),
+                  annotation_text=f"10:30 Tgt 2029: {new_members_1030['targets'][2029]}",
+                  annotation_position="right",
+                  row=1, col=2)
 
-    # Table 4: STAY RATIO
-    sr_rows = []
-    for svc in services:
-        m23 = metrics[svc][y_23]
-        m24 = metrics[svc][y_24]
-        m25 = metrics[svc][y_25]
-        sr_rows.append([
-            svc,
-            fmt_p(m23['sratio']),
-            fmt_p(m24['sratio']),
-            fmt_p(m24['sratio'] - m23['sratio']),
-            fmt_p(m25['sratio']),
-            fmt_p(m25['sratio'] - m24['sratio'])
-        ])
+    # Visitor Ratios % chart (row 2, col 1) - 10:30 targets
+    # Convert ratio to percentage and multiply by 100
+    baseline_1030_vr = visitor_ratio_1030['baseline']['value'] * 100  # 127%
+    target_1030_2026 = visitor_ratio_1030['targets'][2026] * 100  # 135%
+    target_1030_2029 = visitor_ratio_1030['targets'][2029] * 100  # 150%
 
-    fig.add_trace(
-        go.Table(
-            header=dict(
-                values=table_header,
-                fill_color='#fecaca',
-                font=dict(color='#0f172a', size=9, family='Inter'),
-                align='center', height=22
-            ),
-            cells=dict(
-                values=list(map(list, zip(*sr_rows))),
-                fill_color='#ffffff',
-                align=['left'] + ['right']*5,
-                height=18,
-                font=dict(size=8, color='#334155', family='Inter')
-            ),
-            columnwidth=[110, 70, 70, 90, 70, 90]
-        ),
-        row=8, col=1
-    )
+    # 2025 Target: 127% (emerald, solid)
+    fig.add_hline(y=baseline_1030_vr,
+                  line=dict(color='#10b981', width=2, dash='solid'),
+                  annotation_text=f"10:30 Target: {baseline_1030_vr:.0f}% (2025)",
+                  annotation_position="right",
+                  row=2, col=1)
 
-    # A4 portrait dimensions: 1000×1400px
+    # 2026 Target: 135% (teal, dashed)
+    fig.add_hline(y=target_1030_2026,
+                  line=dict(color='#14b8a6', width=2, dash='dash'),
+                  annotation_text=f"10:30 Target: {target_1030_2026:.0f}% (2026)",
+                  annotation_position="right",
+                  row=2, col=1)
+
+    # 2029 Target: 150% (cyan, dashed)
+    fig.add_hline(y=target_1030_2029,
+                  line=dict(color='#06b6d4', width=2, dash='dash'),
+                  annotation_text=f"10:30 Target: {target_1030_2029:.0f}% (2029)",
+                  annotation_position="right",
+                  row=2, col=1)
+
+    # Stay Ratios % chart (row 2, col 2) - Overall targets only (too busy for 10:30)
+    # Convert ratios to percentages
+    baseline_stay_pct = stay_ratio_targets['baseline']['value'] * 100  # 17.5%
+    target_2026_pct = stay_ratio_targets['targets'][2026] * 100  # 19%
+    target_2029_pct = stay_ratio_targets['targets'][2029] * 100  # 22%
+
+    # 2025 Target: 17.5% (emerald, solid)
+    fig.add_hline(y=baseline_stay_pct,
+                  line=dict(color='#10b981', width=2, dash='solid'),
+                  annotation_text=f"Target 2025: {baseline_stay_pct}%",
+                  annotation_position="right",
+                  row=2, col=2)
+
+    # 2026 Target: 19% (teal, dashed)
+    fig.add_hline(y=target_2026_pct,
+                  line=dict(color='#14b8a6', width=2, dash='dash'),
+                  annotation_text=f"Target 2026: {target_2026_pct}%",
+                  annotation_position="right",
+                  row=2, col=2)
+
+    # 2029 Target: 22% (cyan, dashed)
+    fig.add_hline(y=target_2029_pct,
+                  line=dict(color='#06b6d4', width=2, dash='dash'),
+                  annotation_text=f"Target 2029: {target_2029_pct}%",
+                  annotation_position="right",
+                  row=2, col=2)
+
+    # Layout
     fig.update_layout(
         title=dict(
-            text="<b>Visitor and Stay Dashboard</b><br><span style='font-size:12px; color:#64748b'>Three-Year Analysis Across Four Congregations + Overall Church</span>",
-            x=0.5, y=0.975,  # Moved down slightly from top edge
-            font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", size=18, color='#1e293b')
+            text="<b>Visitor and Stay Dashboard</b><br><span style='font-size:14px; color:#64748b'>Three-Year Analysis with Strategic Plan Targets</span>",
+            x=0.5, y=0.97,
+            font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", size=28, color='#1e293b')
         ),
-        font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", size=9),
+        font=dict(family="Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", size=10),
         plot_bgcolor='white',
         paper_bgcolor='white',
-        height=1400, width=1000,  # A4 portrait proportions
+        height=900, width=1400,
         barmode='group',
         legend=dict(
-            orientation="v",
-            yanchor="top", y=0.96,
-            xanchor="right", x=0.99,
-            font=dict(size=9, color='#374151'),
+            orientation="h",
+            yanchor="top", y=-0.05,
+            xanchor="center", x=0.5,
+            font=dict(size=11, color='#374151'),
             bgcolor='rgba(255,255,255,0.9)'
         ),
-        margin=dict(l=45, r=45, t=120, b=65)  # Increased bottom margin from 40 to 65
+        margin=dict(l=80, r=120, t=120, b=80)
     )
 
-    # Update subplot title font sizes to be smaller
-    for annotation in fig['layout']['annotations']:
-        annotation['font'] = dict(size=10)
-    
+    # Update axes
     fig.update_xaxes(showgrid=False, showline=True, linewidth=1, linecolor='#e2e8f0',
-                     tickfont=dict(size=9, color='#374151'))
+                     tickfont=dict(size=10, color='#374151'))
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#f1f5f9',
                      showline=True, linewidth=1, linecolor='#e2e8f0',
-                     tickfont=dict(size=9, color='#374151'))
-    fig.update_yaxes(title_text="Visitors", row=1, col=1, title_font=dict(size=9))
-    fig.update_yaxes(title_text="Ratio (%)", row=2, col=1, title_font=dict(size=9))
-    fig.update_yaxes(title_text="Stayed", row=3, col=1, title_font=dict(size=9))
-    fig.update_yaxes(title_text="Ratio (%)", row=4, col=1, title_font=dict(size=9))
+                     tickfont=dict(size=10, color='#374151'))
+
+    # Y-axis titles
+    fig.update_yaxes(title_text="Visitors", row=1, col=1, title_font=dict(size=11))
+    fig.update_yaxes(title_text="Stayed", row=1, col=2, title_font=dict(size=11))
+    fig.update_yaxes(title_text="Ratio (%)", row=2, col=1, title_font=dict(size=11))
+    fig.update_yaxes(title_text="Ratio (%)", row=2, col=2, title_font=dict(size=11))
 
     return fig
+
+def calculate_strategic_progress(visitor_data, stayed_data, congregation_averages=None):
+    """
+    Calculate strategic progress vs targets for current year.
+    Returns dict with Overall and 10:30 specific metrics.
+    """
+    from datetime import datetime
+    from config import CONGREGATION_1030_TARGETS
+
+    current_year = datetime.now().year
+    today = datetime.now()
+    days_elapsed = (today - datetime(current_year, 1, 1)).days
+    days_in_year = 366 if current_year % 4 == 0 and (current_year % 100 != 0 or current_year % 400 == 0) else 365
+
+    # Extract current year data
+    year_visitors = visitor_data.get(current_year, {})
+    year_stayed = stayed_data.get(current_year, {})
+
+    regular_services = ['8:30AM', '10:30AM', '6:30PM']  # Removed Mid-week
+    total_visitors_actual = sum(year_visitors.get(svc, 0) for svc in regular_services)
+    total_stayed_actual = sum(year_stayed.get(svc, 0) for svc in regular_services)
+
+    # Get Overall targets from config
+    visitor_targets = NEWCOMERS_TARGETS['total_visitors_annual']
+    stay_ratio_targets = NEWCOMERS_TARGETS['visitor_stay_ratio']
+
+    # Determine which target year to use
+    if current_year in visitor_targets['targets']:
+        total_visitors_target = visitor_targets['targets'][current_year]
+    else:
+        total_visitors_target = visitor_targets['baseline']['value']
+
+    # Calculate prorated target based on days elapsed
+    total_visitors_prorated = int(total_visitors_target * days_elapsed / days_in_year)
+
+    # Calculate progress
+    visitors_progress_pct = (total_visitors_actual / total_visitors_prorated * 100) if total_visitors_prorated > 0 else 0
+
+    # Calculate Overall stay ratio
+    stay_ratio_actual = (total_stayed_actual / total_visitors_actual * 100) if total_visitors_actual > 0 else 0
+
+    # Get stay ratio target (as percentage)
+    if current_year in stay_ratio_targets['targets']:
+        stay_ratio_target = stay_ratio_targets['targets'][current_year] * 100
+    else:
+        stay_ratio_target = stay_ratio_targets['baseline']['value'] * 100
+
+    # Determine status
+    if stay_ratio_actual >= stay_ratio_target + 1:
+        stay_ratio_status = 'ahead'
+    elif stay_ratio_actual >= stay_ratio_target - 1:
+        stay_ratio_status = 'on-track'
+    else:
+        stay_ratio_status = 'behind'
+
+    # --- 10:30 Specific Metrics ---
+    # New congregation members at 10:30
+    new_members_1030_target = CONGREGATION_1030_TARGETS['stay_numbers_1030']
+    visitors_1030 = year_visitors.get('10:30AM', 0)
+    stayed_1030 = year_stayed.get('10:30AM', 0)
+
+    if current_year in new_members_1030_target['targets']:
+        new_members_target = new_members_1030_target['targets'][current_year]
+    else:
+        new_members_target = new_members_1030_target['baseline']['value']
+
+    # 10:30 Stay Ratio
+    stay_ratio_1030_targets = CONGREGATION_1030_TARGETS['stay_ratio']
+    stay_ratio_1030_actual = (stayed_1030 / visitors_1030 * 100) if visitors_1030 > 0 else 0
+
+    if current_year in stay_ratio_1030_targets['targets']:
+        stay_ratio_1030_target = stay_ratio_1030_targets['targets'][current_year] * 100
+    else:
+        stay_ratio_1030_target = stay_ratio_1030_targets['baseline']['value'] * 100
+
+    # Determine 10:30 stay ratio status
+    if stay_ratio_1030_actual >= stay_ratio_1030_target + 1:
+        stay_ratio_1030_status = 'ahead'
+    elif stay_ratio_1030_actual >= stay_ratio_1030_target - 1:
+        stay_ratio_1030_status = 'on-track'
+    else:
+        stay_ratio_1030_status = 'behind'
+
+    # 10:30 Visitor Ratio
+    visitor_ratio_1030_targets = CONGREGATION_1030_TARGETS['visitor_ratio']
+    # Get average congregation for 10:30 from congregation_averages
+    avg_congregation_1030 = 85  # Default fallback
+    if congregation_averages:
+        year_data = congregation_averages.get(current_year, {})
+        if isinstance(year_data, dict) and 'averages' in year_data:
+            avg_congregation_1030 = year_data['averages'].get('10:30AM', 85)
+    visitor_ratio_1030_actual = (visitors_1030 / avg_congregation_1030 * 100) if avg_congregation_1030 > 0 else 0
+
+    if current_year in visitor_ratio_1030_targets['targets']:
+        visitor_ratio_1030_target = visitor_ratio_1030_targets['targets'][current_year] * 100
+    else:
+        visitor_ratio_1030_target = visitor_ratio_1030_targets['baseline']['value'] * 100
+
+    # Determine 10:30 visitor ratio status (use wider tolerance for visitor ratio)
+    if visitor_ratio_1030_actual >= visitor_ratio_1030_target - 5:
+        visitor_ratio_1030_status = 'ahead'
+    elif visitor_ratio_1030_actual >= visitor_ratio_1030_target - 15:
+        visitor_ratio_1030_status = 'on-track'
+    else:
+        visitor_ratio_1030_status = 'behind'
+
+    return {
+        # Overall metrics
+        'total_visitors_actual': total_visitors_actual,
+        'total_visitors_target': total_visitors_target,
+        'total_visitors_prorated': total_visitors_prorated,
+        'visitors_progress_pct': visitors_progress_pct,
+        'stay_ratio_actual': stay_ratio_actual,
+        'stay_ratio_target': stay_ratio_target,
+        'stay_ratio_status': stay_ratio_status,
+        # 10:30 specific metrics
+        'stayed_1030_actual': stayed_1030,
+        'new_members_1030_target': new_members_target,
+        'stay_ratio_1030_actual': stay_ratio_1030_actual,
+        'stay_ratio_1030_target': stay_ratio_1030_target,
+        'stay_ratio_1030_status': stay_ratio_1030_status,
+        'visitor_ratio_1030_actual': visitor_ratio_1030_actual,
+        'visitor_ratio_1030_target': visitor_ratio_1030_target,
+        'visitor_ratio_1030_status': visitor_ratio_1030_status
+    }
 
 def create_visitor_stay_dashboard(visitor_data, stayed_data, congregation_averages):
     """Create the complete Visitor and Stay Dashboard with charts (A4 portrait, saves to outputs folder, auto-opens HTML)."""
@@ -1665,9 +1736,9 @@ def create_visitor_stay_dashboard(visitor_data, stayed_data, congregation_averag
         except Exception as e:
             print(f"⚠️ Could not auto-open HTML file: {e}")
         
-        # Try to save PNG with A4 dimensions
+        # Try to save PNG with new 2x2 dimensions
         try:
-            fig.write_image(png_filename, width=1000, height=1400, scale=2)
+            fig.write_image(png_filename, width=1400, height=900, scale=2)
             print(f"✅ Chart saved as PNG: {png_filename}")
         except Exception as e:
             print(f"⚠️ PNG export failed (install kaleido and pillow): {e}")
@@ -1679,16 +1750,48 @@ def create_visitor_stay_dashboard(visitor_data, stayed_data, congregation_averag
 
 def generate_dashboard_html_with_chart(fig, visitor_data, stayed_data, congregation_averages, years):
     """
-    Generate minimal HTML dashboard with just the embedded Plotly chart.
-    This ensures the HTML matches the PNG output exactly.
+    Generate HTML dashboard with strategic progress box and embedded Plotly chart.
     """
     from datetime import datetime
     import plotly.io as pio
 
+    # Calculate strategic progress
+    progress = calculate_strategic_progress(visitor_data, stayed_data, congregation_averages)
+
     # Convert Plotly figure to HTML div
     chart_html = pio.to_html(fig, include_plotlyjs='cdn', full_html=False)
 
-    # Minimal HTML wrapper that just shows the chart
+    # Determine color for stay ratio based on status
+    status_colors = {
+        'ahead': '#10b981',      # emerald
+        'on-track': '#14b8a6',   # teal
+        'behind': '#ef4444'      # red
+    }
+    status_labels = {
+        'ahead': 'Ahead of Target',
+        'on-track': 'On Track',
+        'behind': 'Behind Target'
+    }
+    stay_color = status_colors.get(progress['stay_ratio_status'], '#64748b')
+    stay_label = status_labels.get(progress['stay_ratio_status'], 'Unknown')
+
+    # Determine color for visitors progress
+    if progress['visitors_progress_pct'] >= 100:
+        visitors_color = '#10b981'  # emerald - ahead
+    elif progress['visitors_progress_pct'] >= 90:
+        visitors_color = '#14b8a6'  # teal - on track
+    else:
+        visitors_color = '#ef4444'  # red - behind
+
+    # Determine color for 10:30 stay ratio
+    stay_1030_color = status_colors.get(progress['stay_ratio_1030_status'], '#64748b')
+    stay_1030_label = status_labels.get(progress['stay_ratio_1030_status'], 'Unknown')
+
+    # Determine color for 10:30 visitor ratio
+    visitor_1030_color = status_colors.get(progress['visitor_ratio_1030_status'], '#64748b')
+    visitor_1030_label = status_labels.get(progress['visitor_ratio_1030_status'], 'Unknown')
+
+    # HTML with strategic progress box at bottom
     html = f'''<!DOCTYPE html>
 <html>
 <head>
@@ -1701,9 +1804,83 @@ def generate_dashboard_html_with_chart(fig, visitor_data, stayed_data, congregat
             padding: 20px;
             background: #f8fafc;
         }}
-        .chart-wrapper {{
-            max-width: 1200px;
+        .container {{
+            max-width: 1400px;
             margin: 0 auto;
+        }}
+        .progress-box {{
+            background: white;
+            padding: 30px 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-top: 24px;
+            border: 1px solid #e5e7eb;
+        }}
+        .progress-title {{
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: #2E5090;
+            background: #2E5090;
+            color: white;
+            padding: 12px 20px;
+            margin: -30px -40px 24px -40px;
+            border-radius: 8px 8px 0 0;
+        }}
+        .progress-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 30px;
+        }}
+        .progress-grid-1030 {{
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }}
+        .section-subtitle {{
+            font-size: 14px;
+            font-weight: 600;
+            color: #2E5090;
+            margin: 30px 0 16px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e5e7eb;
+        }}
+        .progress-item {{
+            background: #f9fafb;
+            padding: 24px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }}
+        .progress-label {{
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }}
+        .progress-value {{
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #1f2937;
+        }}
+        .progress-subtext {{
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 8px;
+        }}
+        .status-badge {{
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 10px;
+            color: white;
+        }}
+        .chart-wrapper {{
             background: white;
             padding: 20px;
             border-radius: 12px;
@@ -1712,8 +1889,79 @@ def generate_dashboard_html_with_chart(fig, visitor_data, stayed_data, congregat
     </style>
 </head>
 <body>
-    <div class="chart-wrapper">
-        {chart_html}
+    <div class="container">
+        <div class="chart-wrapper">
+            {chart_html}
+        </div>
+
+        <div class="progress-box">
+            <div class="progress-title">
+                📊 Strategic Progress (Proclaiming the Gospel Ministry Area)
+            </div>
+
+            <div class="progress-grid">
+                <div class="progress-item">
+                    <div class="progress-label">Total Annual Visitors (Overall)</div>
+                    <div class="progress-value">{progress['total_visitors_actual']}</div>
+                    <div class="progress-subtext">
+                        YTD Target: {progress['total_visitors_prorated']} |
+                        Full Year Target: {progress['total_visitors_target']}
+                    </div>
+                    <div class="status-badge" style="background: {visitors_color};">
+                        {progress['visitors_progress_pct']:.0f}% of YTD Target
+                    </div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-label">Overall Stay Ratio</div>
+                    <div class="progress-value">{progress['stay_ratio_actual']:.1f}%</div>
+                    <div class="progress-subtext">
+                        Target: {progress['stay_ratio_target']:.1f}% |
+                        Difference: {progress['stay_ratio_actual'] - progress['stay_ratio_target']:+.1f}%
+                    </div>
+                    <div class="status-badge" style="background: {stay_color};">
+                        {stay_label}
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-subtitle">10:30 Congregation Targets</div>
+
+            <div class="progress-grid-1030">
+                <div class="progress-item">
+                    <div class="progress-label">New Congregation Members (10:30)</div>
+                    <div class="progress-value">{progress['stayed_1030_actual']}</div>
+                    <div class="progress-subtext">
+                        Target: {progress['new_members_1030_target']} |
+                        Difference: {progress['stayed_1030_actual'] - progress['new_members_1030_target']:+d}
+                    </div>
+                    <div class="status-badge" style="background: {'#10b981' if progress['stayed_1030_actual'] >= progress['new_members_1030_target'] else '#ef4444'};">
+                        {'On Track' if progress['stayed_1030_actual'] >= progress['new_members_1030_target'] else 'Below Target'}
+                    </div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-label">10:30 Stay Ratio</div>
+                    <div class="progress-value">{progress['stay_ratio_1030_actual']:.1f}%</div>
+                    <div class="progress-subtext">
+                        Target: {progress['stay_ratio_1030_target']:.1f}% |
+                        Difference: {progress['stay_ratio_1030_actual'] - progress['stay_ratio_1030_target']:+.1f}%
+                    </div>
+                    <div class="status-badge" style="background: {stay_1030_color};">
+                        {stay_1030_label}
+                    </div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-label">10:30 Visitor Ratio</div>
+                    <div class="progress-value">{progress['visitor_ratio_1030_actual']:.1f}%</div>
+                    <div class="progress-subtext">
+                        Target: {progress['visitor_ratio_1030_target']:.1f}% |
+                        Difference: {progress['visitor_ratio_1030_actual'] - progress['visitor_ratio_1030_target']:+.1f}%
+                    </div>
+                    <div class="status-badge" style="background: {visitor_1030_color};">
+                        {visitor_1030_label}
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </body>
 </html>'''
