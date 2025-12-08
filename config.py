@@ -105,7 +105,7 @@ CONGREGATION_1030_TARGETS = {
             2029: 1.50  # 150%
         }
     },
-    'new_congregation_members': {
+    'stay_numbers_1030': {
         'description': 'Number of new congregation members at 10:30',
         'baseline': {'year': 2025, 'value': 15},  # 15 ytd
         'targets': {
@@ -193,7 +193,7 @@ NEXTGEN_TARGETS = {
 GOSPEL_COURSE_TARGETS = {
     'people_joining_gospel_course': {
         'description': 'Number of people joining a gospel course',
-        'baseline': {'year': 2025, 'value': 10},
+        'baseline': {'year': 2025, 'value': 17},
         'targets': {
             2026: 11,
             2029: 21
@@ -209,10 +209,10 @@ GOSPEL_COURSE_TARGETS = {
     },
     'formal_commitment_to_jesus': {
         'description': 'Number to have made a formal commitment to follow Jesus',
-        'baseline': {'year': 2025, 'value': 2},
+        'baseline': {'year': 2025, 'value': 5},
         'targets': {
-            2026: 2,
-            2029: 4
+            2026: 5,
+            2029: 7
         }
     },
     'adult_baptisms': {
