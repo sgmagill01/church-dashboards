@@ -143,6 +143,24 @@ def is_bible_study_group(group):
     return False
 
 
+def is_small_group(group):
+    """
+    Check if group is a small group (Bible Study, Kids Club, Youth Group, or IFF).
+    Used to identify serving members who ARE in a small group.
+    """
+    group_name = group.get('name', '').lower()
+
+    # Check by category
+    if is_bible_study_group(group):
+        return True
+
+    # Check by name for Kids Club, Youth Group, IFF
+    if any(keyword in group_name for keyword in ['kids club', 'youth group', 'iff', 'international food']):
+        return True
+
+    return False
+
+
 def test_api_connection():
     """Test API connection"""
     print("Testing API connection...")
@@ -477,6 +495,80 @@ def fetch_all_groups_from_api():
     return all_groups
 
 
+def fetch_rostered_members():
+    """
+    Fetch all people with RosteredMember_ category (Serving Members).
+    Similar approach to pastoral_care_dashboard.py
+    """
+    print("\n👥 Fetching all Serving Members (RosteredMember_ category)...")
+
+    # Get all people
+    all_people = []
+    page = 1
+    while True:
+        print(f"Page {page}...", end=" ")
+        response = make_request('people/getAll', {
+            'page': page,
+            'page_size': 1000,
+            'fields': ['demographics']
+        })
+        if not response or not response.get('people'):
+            print("Done")
+            break
+        people = response['people'].get('person', [])
+        if not isinstance(people, list):
+            people = [people] if people else []
+        all_people.extend(people)
+        print(f"({len(people)} people)")
+        if len(people) < 1000:
+            break
+        page += 1
+
+    # Get categories to create a lookup
+    categories_response = make_request('people/categories/getAll')
+    if not categories_response:
+        print("❌ Failed to get categories")
+        return []
+
+    categories = categories_response['categories'].get('category', [])
+    if not isinstance(categories, list):
+        categories = [categories] if categories else []
+
+    # Create category lookup
+    category_lookup = {}
+    for cat in categories:
+        category_lookup[cat.get('id', '')] = cat.get('name', '')
+
+    # Filter for RosteredMember_ only
+    rostered_members = []
+    for person in all_people:
+        # Skip deceased and archived
+        if person.get('deceased') == 1 or person.get('archived') == 1:
+            continue
+
+        # Check if RosteredMember_
+        category_id = person.get('category_id', '')
+        category_name = category_lookup.get(category_id, '')
+
+        if category_name == 'RosteredMember_':
+            first_name = (person.get('firstname') or '').strip()
+            last_name = (person.get('lastname') or '').strip()
+            full_name = f"{first_name} {last_name}".strip()
+
+            if full_name:
+                rostered_members.append({
+                    'name': full_name,
+                    'first_name': first_name,
+                    'last_name': last_name,
+                    'id': person.get('id'),
+                    'email': person.get('email', ''),
+                    'phone': person.get('phone', '')
+                })
+
+    print(f"✅ Found {len(rostered_members)} Serving Members (RosteredMember_)")
+    return rostered_members
+
+
 def extract_monthly_attendance_data(html_content, year_label):
     """Extract monthly attendance data from HTML report"""
     print(f"Extracting monthly attendance data for {year_label}...")
@@ -618,9 +710,11 @@ def create_progressive_attendance_charts(current_monthly_data, last_year_monthly
             cumulative.append(running)
         return months, cumulative
 
-    # Individual group list
-    individual_groups = sorted(set(list((current_monthly_data or {}).keys()) + 
-                                   list((last_year_monthly_data or {}).keys())))
+    # Individual group list (exclude IFF since it has its own category chart)
+    all_groups = sorted(set(list((current_monthly_data or {}).keys()) +
+                            list((last_year_monthly_data or {}).keys())))
+    individual_groups = [g for g in all_groups
+                        if not ('iff' in g.lower() or 'international food' in g.lower())]
     num_individual = len(individual_groups)
 
     # ----- Grid: 3 across (portrait overall) -----
@@ -866,8 +960,8 @@ def create_charts(follow_up_this_year, follow_up_last_year, current_year, last_y
         print(f"⚠️ PNG save failed: {e}")
 
 
-def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, follow_up_last_year, current_year, last_year):
-    """Create detailed HTML report of members needing follow-up"""
+def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, follow_up_last_year, current_year, last_year, serving_members_not_in_groups=None):
+    """Create detailed HTML report of members needing follow-up, plus serving members not in any Bible Study group"""
     
     print("Creating member list with data:")
     print(f"   Recent missed follow-ups: {sum(len(members) for members in follow_up_recent_missed.values()) if follow_up_recent_missed else 0}")
@@ -1214,7 +1308,47 @@ def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, fo
 """
     else:
         html_content += f'<div class="no-followup">✅ All members attended at least once in {last_year}!</div>'
-    
+
+    # Add section for Serving Members not in any Small Group
+    if serving_members_not_in_groups and len(serving_members_not_in_groups) > 0:
+        html_content += f"""
+        <div class="section-title" style="margin-top: 30px; background: #f59e0b;">
+            📋 Serving Members Not in Any Small Group
+        </div>
+
+        <div class="alert" style="margin: 15px 20px;">
+            <strong>ℹ️ Information:</strong> {len(serving_members_not_in_groups)} Serving Members (RosteredMember_ category) are not currently enrolled in any small group (Bible Study, Kids Club, Youth Group, or IFF).
+        </div>
+
+        <div class="group-section" style="margin: 0 20px 20px 20px;">
+            <div class="group-title" style="background: #f59e0b;">
+                Serving Members Not in Any Small Group ({len(serving_members_not_in_groups)} people)
+            </div>
+            <div class="member-list">
+"""
+        # Sort by last name
+        sorted_members = sorted(serving_members_not_in_groups, key=lambda x: (x['last_name'], x['first_name']))
+
+        for member in sorted_members:
+            contact_parts = []
+            if member.get('email'):
+                contact_parts.append(f"📧 {member['email']}")
+            if member.get('phone'):
+                contact_parts.append(f"📞 {member['phone']}")
+            contact_info = " | ".join(contact_parts) if contact_parts else "No contact info"
+
+            html_content += f"""
+                <div class="member-item">
+                    <div class="member-name">{member['name']}</div>
+                    <div class="member-info">{contact_info}</div>
+                </div>
+"""
+
+        html_content += """
+            </div>
+        </div>
+"""
+
     html_content += f"""
         <div class="footer">
             <p>Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
@@ -1236,9 +1370,19 @@ def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, fo
     # Save HTML
     with open(html_filepath, 'w', encoding='utf-8') as f:
         f.write(html_content)
-    
+
     print(f"✅ Dashboard saved: {html_filepath}")
-    
+
+    # Auto-open HTML file
+    try:
+        import subprocess
+        import webbrowser
+        webbrowser.open(f"file://{os.path.abspath(html_filepath)}")
+        print("✅ HTML file auto-opened in browser.")
+    except Exception as e:
+        print(f"⚠️ HTML saved but could not auto-open: {e}")
+        print(f"   Please open manually: {html_filepath}")
+
     # Generate PNG image using html2image (same as using_gifts_dashboard.py)
     print("🖼️ Generating PNG image...")
     try:
@@ -1248,11 +1392,18 @@ def create_followup_member_list(follow_up_recent_missed, follow_up_this_year, fo
         png_filename = 'bible_study_followup_members.png'
         png_filepath = os.path.join(outputs_dir, png_filename)
         
-        # Generate PNG from HTML file
+        # Calculate approximate height based on content
+        # Estimate: header ~200px, summary ~300px, each member ~80px, footer ~100px
+        total_members = total_recent_missed + total_this_year + total_last_year
+        estimated_height = 200 + 300 + (total_members * 80) + 100
+        # Add padding and ensure minimum height
+        estimated_height = max(2000, min(estimated_height + 500, 15000))
+
+        # Generate PNG from HTML file with dynamic height
         hti.screenshot(
             html_file=html_filepath,
             save_as=png_filename,
-            size=(1200, 1600)  # Width x Height - good for dashboard layout
+            size=(1200, estimated_height)  # Dynamic height to capture all content
         )
         
         # html2image saves in current directory, so move it to outputs
@@ -1573,9 +1724,55 @@ def create_bible_study_attendance_analysis():
     print("\nStep 7b: Creating progressive monthly attendance grid (PNG)...")
     create_progressive_attendance_charts(current_monthly_data, last_year_monthly_data, current_year, last_year)
 
+    # Step 7c: Find Serving Members (RosteredMember_) not in any Small Group
+    print("\nStep 7c: Identifying Serving Members not in any Small Group...")
+    rostered_members = fetch_rostered_members()
+
+    # Get all people who are in small groups (Bible Study, Kids Club, Youth Group, IFF)
+    small_group_list = [g for g in all_groups if is_small_group(g)]
+    print(f"   Found {len(small_group_list)} small groups (Bible Study, Kids Club, Youth Group, IFF)")
+
+    all_small_group_members = set()
+
+    # Add Bible Study group members
+    for group_name, members in bible_study_members.items():
+        for member in members:
+            all_small_group_members.add(normalize_name(member['name']))
+
+    # Add members from Kids Club, Youth Group, IFF
+    for group in small_group_list:
+        group_name = group.get('name', '').lower()
+        # Skip if it's already counted as a Bible Study group
+        if is_bible_study_group(group):
+            continue
+
+        # Add members from Kids Club, Youth Group, IFF
+        if group.get('people') and group['people'].get('person'):
+            group_people = group['people']['person']
+            if not isinstance(group_people, list):
+                group_people = [group_people] if group_people else []
+
+            for person in group_people:
+                first_name = (person.get('firstname') or '').strip()
+                last_name = (person.get('lastname') or '').strip()
+                person_name = f"{first_name} {last_name}".strip()
+                if person_name:
+                    all_small_group_members.add(normalize_name(person_name))
+
+    print(f"   Total unique people in small groups: {len(all_small_group_members)}")
+
+    # Find serving members NOT in any small group
+    serving_members_not_in_groups = []
+    for member in rostered_members:
+        member_norm = normalize_name(member['name'])
+        if member_norm not in all_small_group_members:
+            serving_members_not_in_groups.append(member)
+
+    print(f"   ✅ Found {len(serving_members_not_in_groups)} Serving Members not in any small group")
+
     # Step 8: Detailed follow-up HTML list
     print("\nStep 8: Generating follow-up member list...")
-    create_followup_member_list(follow_up_recent_missed, follow_up_this_year, follow_up_last_year, current_year, last_year)
+    create_followup_member_list(follow_up_recent_missed, follow_up_this_year, follow_up_last_year, current_year, last_year, serving_members_not_in_groups)
 
     return follow_up_recent_missed, follow_up_this_year, follow_up_last_year
 
