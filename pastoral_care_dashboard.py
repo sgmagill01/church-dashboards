@@ -4,7 +4,7 @@ import sys
 
 # Auto-install required packages
 def install_packages():
-    packages = ['beautifulsoup4', 'pandas', 'requests']
+    packages = ['beautifulsoup4', 'pandas', 'requests', 'html2image']
     for package in packages:
         try:
             if package == 'beautifulsoup4':
