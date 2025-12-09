@@ -1736,12 +1736,32 @@ def create_visitor_stay_dashboard(visitor_data, stayed_data, congregation_averag
         except Exception as e:
             print(f"⚠️ Could not auto-open HTML file: {e}")
         
-        # Try to save PNG with new 2x2 dimensions
+        # Generate PNG from complete HTML (including the five boxes at bottom)
+        print("🖼️ Generating PNG of complete dashboard (including strategic progress boxes)...")
         try:
-            fig.write_image(png_filename, width=1400, height=900, scale=2)
-            print(f"✅ Chart saved as PNG: {png_filename}")
+            from html2image import Html2Image
+            hti = Html2Image()
+
+            # Generate PNG from HTML file - captures the complete page
+            hti.screenshot(
+                html_file=html_filename,
+                save_as='visitor_stay_dashboard.png',
+                size=(1400, 2000)  # Width x Height - taller to capture boxes at bottom
+            )
+
+            # html2image saves in current directory, so move it to outputs
+            if os.path.exists('visitor_stay_dashboard.png'):
+                import shutil
+                shutil.move('visitor_stay_dashboard.png', png_filename)
+                print(f"✅ Complete dashboard saved as PNG: {png_filename}")
+            else:
+                print(f"⚠️ PNG file was not created (html2image may not be installed)")
+
+        except ImportError:
+            print(f"⚠️ PNG export skipped: html2image not installed")
+            print(f"   To enable PNG export, install with: pip install html2image")
         except Exception as e:
-            print(f"⚠️ PNG export failed (install kaleido and pillow): {e}")
+            print(f"⚠️ PNG export failed: {e}")
     except Exception as e:
         print(f"❌ Failed to save dashboard: {e}")
         return None
