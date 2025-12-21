@@ -282,6 +282,54 @@ TRAINING_TARGETS = {
 }
 
 # ============================================
+# USING GIFTS TARGETS
+# ============================================
+
+USING_GIFTS_TARGETS = {
+    'pct_congregation_serving': {
+        'description': '% of total congregation who serve in some way',
+        'baseline': {'year': 2025, 'value': 0.62},  # 62%
+        'targets': {
+            2026: 0.65,  # 65%
+            2029: 0.70  # 70%
+        }
+    },
+    'number_in_word_based_ministry': {
+        'description': 'Number serving in word-based ministry',
+        'baseline': {'year': 2025, 'value': 73},
+        'targets': {
+            2026: 80,
+            2029: 105
+        }
+    },
+    'word_based_ministry_recruitment': {
+        'description': 'New people recruited into word-based ministry this year',
+        'baseline': {'year': 2025, 'value': 5},  # Target for 2025: 5 people
+        'targets': {
+            2026: 5,  # Target: 5 new recruits per year (10% growth)
+            2029: 5  # Target: 5 new recruits per year (10% growth)
+        },
+        'note': 'Strategic plan baseline: 46 people in 2024, target: 51 by 2029 (10% growth over 5 years = ~5 per year)'
+    },
+    'visitor_to_serving_member_conversion': {
+        'description': 'Visitor to Serving Member Conversion Rate (%)',
+        'baseline': {'year': 2025, 'value': 0.05},  # 5.0% target
+        'targets': {
+            2026: 0.05,  # 5.0%
+            2029: 0.05  # 5.0%
+        }
+    },
+    'serve_chats': {
+        'description': 'Number of Serve Chats conducted',
+        'baseline': {'year': 2025, 'value': 7},  # 7 ytd
+        'targets': {
+            2026: 12,
+            2029: 20
+        }
+    }
+}
+
+# ============================================
 # NCLS SURVEY DATA POINTS
 # ============================================
 # Note: NCLS surveys occur periodically (2020, 2022 data shown)
@@ -478,6 +526,17 @@ DASHBOARD_MAPPING = {
             'church_day_away_attendance_pct'
         ],
         'not_yet_tracked': []
+    },
+    'using_gifts_dashboard': {
+        'tracked': [
+            'pct_congregation_serving',
+            'number_in_word_based_ministry',
+            'word_based_ministry_recruitment',
+            'visitor_to_serving_member_conversion'
+        ],
+        'not_yet_tracked': [
+            'serve_chats'
+        ]
     }
 }
 
